@@ -62,7 +62,7 @@ func (r *AzureMachineTemplate) ValidateUpdate(oldRaw runtime.Object) error {
 	machinetemplatelog.Info("validate update", "name", r.Name)
 	var allErrs field.ErrorList
 	old := oldRaw.(*AzureMachineTemplate)
-
+	old.Default()
 	if !reflect.DeepEqual(r.Spec.Template.Spec, old.Spec.Template.Spec) {
 		allErrs = append(allErrs,
 			field.Invalid(field.NewPath("AzureMachineTemplate", "spec", "template", "spec"), r, AzureMachineTemplateImmutableMsg),

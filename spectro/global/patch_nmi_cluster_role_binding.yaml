@@ -1,0 +1,6 @@
+- op: replace
+  path: "/subjects/0/namespace"
+  value: capi-webhook-system
+- op: replace
+  path: "/subjects/0/name"
+  value: default

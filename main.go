@@ -218,7 +218,7 @@ func InitFlags(fs *pflag.FlagSet) {
 
 	fs.IntVar(&webhookPort,
 		"webhook-port",
-		9443,
+		0,
 		"Webhook Server port, disabled by default. When enabled, the manager will only work as webhook server, no reconcilers are installed.",
 	)
 
@@ -302,9 +302,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	registerControllers(ctx, mgr)
-
-	registerWebhooks(ctx, mgr)
+	if webhookPort == 0 {
+		registerControllers(ctx, mgr)
+	} else {
+		registerWebhooks(ctx, mgr)
+	}
 
 	// +kubebuilder:scaffold:builder
 	setupLog.Info("starting manager", "version", version.Get().String())
@@ -319,6 +321,7 @@ func registerControllers(ctx context.Context, mgr manager.Manager) {
 	if err != nil {
 		setupLog.Error(err, "failed to build machineCache ReconcileCache")
 	}
+	setupLog.V(0).Info("registerControllers")
 	if err := controllers.NewAzureMachineReconciler(mgr.GetClient(), ctrl.Log.WithName("controllers").WithName("AzureMachine"),
 		mgr.GetEventRecorderFor("azuremachine-reconciler"),
 		reconcileTimeout,
@@ -475,6 +478,7 @@ func registerControllers(ctx context.Context, mgr manager.Manager) {
 }
 
 func registerWebhooks(ctx context.Context, mgr manager.Manager) {
+	setupLog.V(0).Info("registerWebhooks")
 	if err := (&infrav1alpha4.AzureCluster{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "AzureCluster")
 		os.Exit(1)

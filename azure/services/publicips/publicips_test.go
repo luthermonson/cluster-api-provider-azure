@@ -72,6 +72,10 @@ func TestReconcilePublicIP(t *testing.T) {
 						IsIPv6:  true,
 						DNSName: "fakename.mydomain.io",
 					},
+					{
+						Name:    "my-publicip",
+						DNSName: "fakedns.mydomain.io",
+					},
 				})
 				s.ResourceGroup().AnyTimes().Return("my-rg")
 				s.ClusterName().AnyTimes().Return("my-cluster")
@@ -79,6 +83,7 @@ func TestReconcilePublicIP(t *testing.T) {
 				s.Location().AnyTimes().Return("testlocation")
 				s.FailureDomains().AnyTimes().Return([]string{"1,2,3"})
 				gomock.InOrder(
+					m.Get(gomockinternal.AContext(), "my-rg", "my-publicip").Return(network.PublicIPAddress{}, autorest.NewErrorWithResponse("", "", &http.Response{StatusCode: 404}, "Not Found")),
 					m.CreateOrUpdate(gomockinternal.AContext(), "my-rg", "my-publicip", gomockinternal.DiffEq(network.PublicIPAddress{
 						Name:     to.StringPtr("my-publicip"),
 						Sku:      &network.PublicIPAddressSku{Name: network.PublicIPAddressSkuNameStandard},
@@ -97,6 +102,7 @@ func TestReconcilePublicIP(t *testing.T) {
 						},
 						Zones: to.StringSlicePtr([]string{"1,2,3"}),
 					})).Times(1),
+					m.Get(gomockinternal.AContext(), "my-rg", "my-publicip-2").Return(network.PublicIPAddress{}, autorest.NewErrorWithResponse("", "", &http.Response{StatusCode: 404}, "Not Found")),
 					m.CreateOrUpdate(gomockinternal.AContext(), "my-rg", "my-publicip-2", gomockinternal.DiffEq(network.PublicIPAddress{
 						Name:     to.StringPtr("my-publicip-2"),
 						Sku:      &network.PublicIPAddressSku{Name: network.PublicIPAddressSkuNameStandard},
@@ -115,6 +121,7 @@ func TestReconcilePublicIP(t *testing.T) {
 						},
 						Zones: to.StringSlicePtr([]string{"1,2,3"}),
 					})).Times(1),
+					m.Get(gomockinternal.AContext(), "my-rg", "my-publicip-3").Return(network.PublicIPAddress{}, autorest.NewErrorWithResponse("", "", &http.Response{StatusCode: 404}, "Not Found")),
 					m.CreateOrUpdate(gomockinternal.AContext(), "my-rg", "my-publicip-3", gomockinternal.DiffEq(network.PublicIPAddress{
 						Name:     to.StringPtr("my-publicip-3"),
 						Sku:      &network.PublicIPAddressSku{Name: network.PublicIPAddressSkuNameStandard},
@@ -129,6 +136,7 @@ func TestReconcilePublicIP(t *testing.T) {
 						},
 						Zones: to.StringSlicePtr([]string{"1,2,3"}),
 					})).Times(1),
+					m.Get(gomockinternal.AContext(), "my-rg", "my-publicip-ipv6").Return(network.PublicIPAddress{}, autorest.NewErrorWithResponse("", "", &http.Response{StatusCode: 404}, "Not Found")),
 					m.CreateOrUpdate(gomockinternal.AContext(), "my-rg", "my-publicip-ipv6", gomockinternal.DiffEq(network.PublicIPAddress{
 						Name:     to.StringPtr("my-publicip-ipv6"),
 						Sku:      &network.PublicIPAddressSku{Name: network.PublicIPAddressSkuNameStandard},
@@ -146,6 +154,32 @@ func TestReconcilePublicIP(t *testing.T) {
 							},
 						},
 						Zones: to.StringSlicePtr([]string{"1,2,3"}),
+					})).Times(1),
+					m.Get(gomockinternal.AContext(), "my-rg", "my-publicip").Return(network.PublicIPAddress{
+						Name: to.StringPtr("my-publicip"),
+						Tags: map[string]*string{
+							"Name": to.StringPtr("my-publicip"),
+							"sigs.k8s.io_cluster-api-provider-azure_cluster_my-cluster": to.StringPtr("owned"),
+						},
+						Zones: to.StringSlicePtr([]string{"1,2"}),
+					}, nil),
+					m.CreateOrUpdate(gomockinternal.AContext(), "my-rg", "my-publicip", gomockinternal.DiffEq(network.PublicIPAddress{
+						Name:     to.StringPtr("my-publicip"),
+						Sku:      &network.PublicIPAddressSku{Name: network.PublicIPAddressSkuNameStandard},
+						Location: to.StringPtr("testlocation"),
+						Tags: map[string]*string{
+							"Name": to.StringPtr("my-publicip"),
+							"sigs.k8s.io_cluster-api-provider-azure_cluster_my-cluster": to.StringPtr("owned"),
+						},
+						PublicIPAddressPropertiesFormat: &network.PublicIPAddressPropertiesFormat{
+							PublicIPAddressVersion:   network.IPVersionIPv4,
+							PublicIPAllocationMethod: network.IPAllocationMethodStatic,
+							DNSSettings: &network.PublicIPAddressDNSSettings{
+								DomainNameLabel: to.StringPtr("fakedns"),
+								Fqdn:            to.StringPtr("fakedns.mydomain.io"),
+							},
+						},
+						Zones: to.StringSlicePtr([]string{"1,2"}),
 					})).Times(1),
 				)
 			},
@@ -166,6 +200,7 @@ func TestReconcilePublicIP(t *testing.T) {
 				s.AdditionalTags().AnyTimes().Return(infrav1.Tags{})
 				s.Location().AnyTimes().Return("testlocation")
 				s.FailureDomains().Times(1)
+				m.Get(gomockinternal.AContext(), "my-rg", "my-publicip").Return(network.PublicIPAddress{}, autorest.NewErrorWithResponse("", "", &http.Response{StatusCode: 404}, "Not Found"))
 				m.CreateOrUpdate(gomockinternal.AContext(), "my-rg", "my-publicip", gomock.AssignableToTypeOf(network.PublicIPAddress{})).Return(autorest.NewErrorWithResponse("", "", &http.Response{StatusCode: 500}, "Internal Server Error"))
 			},
 		},

@@ -75,7 +75,17 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			}
 		}
 
-		err := s.Client.CreateOrUpdate(
+		existingIP, err := s.Client.Get(ctx, s.Scope.ResourceGroup(), ip.Name)
+		if err != nil && !azure.ResourceNotFound(err) {
+			return errors.Wrap(err, "failed to fetch existing ip")
+		}
+
+		zones := existingIP.Zones
+		if err != nil && azure.ResourceNotFound(err) {
+			zones = to.StringSlicePtr(s.Scope.FailureDomains())
+		}
+
+		err = s.Client.CreateOrUpdate(
 			ctx,
 			s.Scope.ResourceGroup(),
 			ip.Name,
@@ -94,7 +104,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 					PublicIPAllocationMethod: network.IPAllocationMethodStatic,
 					DNSSettings:              dnsSettings,
 				},
-				Zones: to.StringSlicePtr(s.Scope.FailureDomains()),
+				Zones: zones,
 			},
 		)
 

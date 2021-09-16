@@ -84,6 +84,7 @@ func (c *AzureCluster) ValidateUpdate(oldRaw runtime.Object) error {
 		)
 	}
 
+	old.setAzureEnvironmentDefault()
 	if !reflect.DeepEqual(c.Spec.AzureEnvironment, old.Spec.AzureEnvironment) {
 		allErrs = append(allErrs,
 			field.Invalid(field.NewPath("spec", "AzureEnvironment"),
