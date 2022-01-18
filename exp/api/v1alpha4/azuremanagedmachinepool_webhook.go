@@ -17,15 +17,9 @@ limitations under the License.
 package v1alpha4
 
 import (
-	"context"
-
-	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"sigs.k8s.io/cluster-api-provider-azure/azure"
-
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha4"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -86,16 +80,6 @@ func (r *AzureManagedMachinePool) ValidateUpdate(oldRaw runtime.Object, client c
 		}
 	}
 
-	if r.Spec.Mode != string(NodePoolModeSystem) && old.Spec.Mode == string(NodePoolModeSystem) {
-		// validate for last system node pool
-		if err := r.validateLastSystemNodePool(client); err != nil {
-			allErrs = append(allErrs, field.Invalid(
-				field.NewPath("Spec", "Mode"),
-				r.Spec.Mode,
-				"Last system node pool cannot be mutated to user node pool"))
-		}
-	}
-
 	if len(allErrs) != 0 {
 		return apierrors.NewInvalid(GroupVersion.WithKind("AzureManagedMachinePool").GroupKind(), r.Name, allErrs)
 	}
@@ -106,55 +90,5 @@ func (r *AzureManagedMachinePool) ValidateUpdate(oldRaw runtime.Object, client c
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
 func (r *AzureManagedMachinePool) ValidateDelete(client client.Client) error {
 	azuremanagedmachinepoollog.Info("validate delete", "name", r.Name)
-
-	if r.Spec.Mode != string(NodePoolModeSystem) {
-		return nil
-	}
-
-	return errors.Wrapf(r.validateLastSystemNodePool(client), "if the delete is triggered via owner MachinePool please refer to trouble shooting section in https://capz.sigs.k8s.io/topics/managedcluster.html")
-}
-
-// validateLastSystemNodePool is used to check if the existing system node pool is the last system node pool.
-// If it is a last system node pool it cannot be deleted or mutated to user node pool as AKS expects min 1 system node pool.
-func (r *AzureManagedMachinePool) validateLastSystemNodePool(cli client.Client) error {
-	ctx := context.Background()
-
-	// Fetch the Cluster.
-	clusterName, ok := r.Labels[clusterv1.ClusterLabelName]
-	if !ok {
-		return nil
-	}
-
-	ownerCluster := &clusterv1.Cluster{}
-	key := client.ObjectKey{
-		Namespace: r.Namespace,
-		Name:      clusterName,
-	}
-
-	if err := cli.Get(ctx, key, ownerCluster); err != nil {
-		if azure.ResourceNotFound(err) {
-			return nil
-		}
-		return err
-	}
-
-	if !ownerCluster.DeletionTimestamp.IsZero() {
-		return nil
-	}
-
-	opt1 := client.InNamespace(r.Namespace)
-	opt2 := client.MatchingLabels(map[string]string{
-		clusterv1.ClusterLabelName: clusterName,
-		LabelAgentPoolMode:         string(NodePoolModeSystem),
-	})
-
-	ammpList := &AzureManagedMachinePoolList{}
-	if err := cli.List(ctx, ammpList, opt1, opt2); err != nil {
-		return err
-	}
-
-	if len(ammpList.Items) <= 1 {
-		return errors.New("AKS Cluster must have at least one system pool")
-	}
 	return nil
 }
