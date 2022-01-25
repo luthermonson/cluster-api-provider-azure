@@ -39,6 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	infrav1 "sigs.k8s.io/cluster-api-provider-azure/api/v1alpha4"
+	"sigs.k8s.io/cluster-api-provider-azure/azure"
 	"sigs.k8s.io/cluster-api-provider-azure/azure/scope"
 	infracontroller "sigs.k8s.io/cluster-api-provider-azure/controllers"
 	infrav1exp "sigs.k8s.io/cluster-api-provider-azure/exp/api/v1alpha4"
@@ -209,17 +210,34 @@ func (amcpr *AzureManagedControlPlaneReconciler) reconcileNormal(ctx context.Con
 	controllerutil.AddFinalizer(scope.ControlPlane, infrav1.ClusterFinalizer)
 	// Register the finalizer immediately to avoid orphaning Azure resources on delete
 	if err := scope.PatchObject(ctx); err != nil {
+		amcpr.Recorder.Eventf(scope.ControlPlane, corev1.EventTypeWarning, "AzureManagedControlPlane unavailable", "failed to patch resource: %s", err)
 		return reconcile.Result{}, err
 	}
 
 	if err := newAzureManagedControlPlaneReconciler(scope).Reconcile(ctx); err != nil {
+		// Handle transient and terminal errors
+		log := scope.WithValues("name", scope.ControlPlane.Name, "namespace", scope.ControlPlane.Namespace)
+		var reconcileError azure.ReconcileError
+		if errors.As(err, &reconcileError) {
+			if reconcileError.IsTerminal() {
+				log.Error(err, "failed to reconcile AzureManagedControlPlane")
+				return reconcile.Result{}, nil
+			}
+
+			if reconcileError.IsTransient() {
+				log.V(4).Info("requeuing due to transient transient failure", "error", err)
+				return reconcile.Result{RequeueAfter: reconcileError.RequeueAfter()}, nil
+			}
+
+			return reconcile.Result{}, errors.Wrap(err, "failed to reconcile AzureManagedControlPlane")
+		}
 		return reconcile.Result{}, errors.Wrapf(err, "error creating AzureManagedControlPlane %s/%s", scope.ControlPlane.Namespace, scope.ControlPlane.Name)
 	}
 
 	// No errors, so mark us ready so the Cluster API Cluster Controller can pull it
 	scope.ControlPlane.Status.Ready = true
 	scope.ControlPlane.Status.Initialized = true
-
+	amcpr.Recorder.Event(scope.ControlPlane, corev1.EventTypeNormal, "AzureManagedControlPlane available", "successfully reconciled")
 	return reconcile.Result{}, nil
 }
 
