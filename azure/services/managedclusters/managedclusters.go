@@ -309,14 +309,13 @@ func (s *Service) Reconcile(ctx context.Context) error {
 
 		diff := computeDiffOfNormalizedClusters(managedCluster, existingMC)
 		if diff != "" {
+			klog.V(2).Infof("Update required (+new -old):\n%s", diff)
 			ps := *existingMC.ManagedClusterProperties.ProvisioningState
 			if ps != string(infrav1alpha4.Canceled) && ps != string(infrav1alpha4.Failed) && ps != string(infrav1alpha4.Succeeded) {
 				msg := fmt.Sprintf("Unable to update existing managed cluster in non terminal state. Managed cluster must be in one of the following provisioning states: canceled, failed, or succeeded. Actual state: %s", ps)
 				klog.V(2).Infof(msg)
 				return errors.New(msg)
 			}
-
-			klog.V(2).Infof("Update required (+new -old):\n%s", diff)
 			managedCluster, err = s.Client.CreateOrUpdate(ctx, managedClusterSpec.ResourceGroupName, managedClusterSpec.Name, managedCluster)
 			if err != nil {
 				return fmt.Errorf("failed to update managed cluster, %w", err)

@@ -99,13 +99,6 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			return errors.Wrap(err, "failed to create or update agent pool")
 		}
 	} else {
-		ps := *existingPool.ManagedClusterAgentPoolProfileProperties.ProvisioningState
-		if ps != string(infrav1alpha4.Canceled) && ps != string(infrav1alpha4.Failed) && ps != string(infrav1alpha4.Succeeded) {
-			msg := fmt.Sprintf("Unable to update existing agent pool in non terminal state. Agent pool must be in one of the following provisioning states: canceled, failed, or succeeded. Actual state: %s", ps)
-			klog.V(2).Infof(msg)
-			return errors.New(msg)
-		}
-
 		// Normalize individual agent pools to diff in case we need to update
 		existingProfile := containerservice.AgentPool{
 			ManagedClusterAgentPoolProfileProperties: &containerservice.ManagedClusterAgentPoolProfileProperties{
@@ -127,6 +120,12 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		diff := cmp.Diff(existingProfile, normalizedProfile)
 		if diff != "" {
 			klog.V(2).Infof("Update required (+new -old):\n%s", diff)
+			ps := *existingPool.ManagedClusterAgentPoolProfileProperties.ProvisioningState
+			if ps != string(infrav1alpha4.Canceled) && ps != string(infrav1alpha4.Failed) && ps != string(infrav1alpha4.Succeeded) {
+				msg := fmt.Sprintf("Unable to update existing agent pool in non terminal state. Agent pool must be in one of the following provisioning states: canceled, failed, or succeeded. Actual state: %s", ps)
+				klog.V(2).Infof(msg)
+				return errors.New(msg)
+			}
 			err = s.Client.CreateOrUpdate(ctx, agentPoolSpec.ResourceGroup, agentPoolSpec.Cluster, agentPoolSpec.Name, profile)
 			if err != nil {
 				return errors.Wrap(err, "failed to create or update agent pool")
