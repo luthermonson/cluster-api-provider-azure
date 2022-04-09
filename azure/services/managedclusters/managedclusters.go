@@ -122,9 +122,11 @@ func computeDiffOfNormalizedClusters(managedCluster containerservice.ManagedClus
 
 	clusterNormalized := &containerservice.ManagedCluster{
 		ManagedClusterProperties: propertiesNormalized,
+		Tags:                     managedCluster.Tags,
 	}
 	existingMCClusterNormalized := &containerservice.ManagedCluster{
 		ManagedClusterProperties: existingMCPropertiesNormalized,
+		Tags:                     existingMC.Tags,
 	}
 
 	if managedCluster.Sku != nil {
