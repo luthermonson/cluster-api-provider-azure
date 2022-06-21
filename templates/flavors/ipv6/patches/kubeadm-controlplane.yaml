@@ -1,10 +1,9 @@
-apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
 kind: KubeadmControlPlane
 metadata:
   name: "${CLUSTER_NAME}-control-plane"
 spec:
   kubeadmConfigSpec:
-    useExperimentalRetryJoin: true
     postKubeadmCommands:
       - sed -i '\#--listen-client-urls#s#$#,https://127.0.0.1:2379#' /etc/kubernetes/manifests/etcd.yaml
       # This frees up :53 on the host for the coredns pods
@@ -17,6 +16,7 @@ spec:
         kubeletExtraArgs:
           cloud-provider: azure
           cloud-config: /etc/kubernetes/azure.json
+          azure-container-registry-config: /etc/kubernetes/azure.json
           node-ip: "::"
           cluster-dns: "fd00::10"
       localAPIEndpoint:
@@ -28,6 +28,7 @@ spec:
         kubeletExtraArgs:
           cloud-provider: azure
           cloud-config: /etc/kubernetes/azure.json
+          azure-container-registry-config: /etc/kubernetes/azure.json
           node-ip: "::"
           cluster-dns: "fd00::10"
       controlPlane:

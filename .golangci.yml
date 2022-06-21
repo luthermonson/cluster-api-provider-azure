@@ -8,23 +8,85 @@ run:
 linters:
   disable-all: true
   enable:
+    - asciicheck
+    - bodyclose
     - deadcode
+    - depguard
+    - dogsled
+    - errcheck
+    - errorlint
+    - exportloopref
+    - gci
     - goconst
+    - gocritic
+    - gocyclo
+    - godot
     - gofmt
-    - golint
+    - goimports
+    - goprintffuncname
     - gosec
+    - gosimple
     - govet
+    - ifshort
+    - importas
     - ineffassign
-    - interfacer
-    - maligned
     - misspell
     - nakedret
+    - nilerr
+    - nolintlint
     - prealloc
+    - predeclared
+    - revive
+    - rowserrcheck
+    - staticcheck
     - structcheck
+    - stylecheck
+    - thelper
+    - typecheck
     - unconvert
+    - unparam
+    - unused
     - varcheck
+    - whitespace
   # Run with --fast=false for more extensive checks
   fast: true
+
+linters-settings:
+  ifshort:
+    # Maximum length of variable declaration measured in number of characters, after which linter won't suggest using short syntax.
+    max-decl-chars: 50
+  importas:
+    no-unaliased: true
+    alias:
+      # Kubernetes
+      - pkg: k8s.io/api/core/v1
+        alias: corev1
+      - pkg: k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
+        alias: apiextensionsv1
+      - pkg: k8s.io/apimachinery/pkg/apis/meta/v1
+        alias: metav1
+      - pkg: k8s.io/apimachinery/pkg/api/errors
+        alias: apierrors
+      - pkg: k8s.io/apimachinery/pkg/util/errors
+        alias: kerrors
+      # Controller Runtime
+      - pkg: sigs.k8s.io/controller-runtime
+        alias: ctrl
+  godot:
+    #   declarations - for top level declaration comments (default);
+    #   toplevel     - for top level comments;
+    #   all          - for all comments.
+    scope: toplevel
+    exclude:
+    - '^ \+.*'
+    - '^ ANCHOR.*'
+  gosec:
+    excludes:
+    - G307 # Deferring unsafe method "Close" on type "\*os.File"
+    - G108 # Profiling endpoint is automatically exposed on /debug/pprof
+  staticcheck:
+    go: "1.17"
+
 issues:
   exclude-rules:
     - path: internal/test/
@@ -33,9 +95,16 @@ issues:
     - path: cloudtest\.go
       linters:
         - golint
-    - path: api/v1alpha2/types\.go
+    - path: api/v1alpha3/types\.go
       linters:
         - golint
+    - path: _test\.go
+      linters:
+        - unused
+    - linters:
+        - stylecheck
+      text: "ST1016: methods on the same type should have the same receiver name"
+      path: .*(api|types)\/.*\/*_types\.go$
   include:
   - EXC0002 # include "missing comments" issues from golint
   max-issues-per-linter: 0

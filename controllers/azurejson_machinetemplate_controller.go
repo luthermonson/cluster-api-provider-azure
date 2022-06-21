@@ -18,60 +18,63 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"time"
 
-	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	"go.opentelemetry.io/otel/api/trace"
-	"go.opentelemetry.io/otel/label"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
+	infrav1 "sigs.k8s.io/cluster-api-provider-azure/api/v1beta1"
+	"sigs.k8s.io/cluster-api-provider-azure/azure/scope"
+	"sigs.k8s.io/cluster-api-provider-azure/azure/services/identities"
+	"sigs.k8s.io/cluster-api-provider-azure/util/reconciler"
+	"sigs.k8s.io/cluster-api-provider-azure/util/tele"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
+	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	infrav1 "sigs.k8s.io/cluster-api-provider-azure/api/v1alpha3"
-	"sigs.k8s.io/cluster-api-provider-azure/cloud/scope"
-	"sigs.k8s.io/cluster-api-provider-azure/util/reconciler"
-	"sigs.k8s.io/cluster-api-provider-azure/util/tele"
 )
 
-// AzureJSONTemplateReconciler reconciles azure json secrets for AzureMachineTemplate objects
+// AzureJSONTemplateReconciler reconciles Azure json secrets for AzureMachineTemplate objects.
 type AzureJSONTemplateReconciler struct {
 	client.Client
-	Log              logr.Logger
 	Recorder         record.EventRecorder
 	ReconcileTimeout time.Duration
+	WatchFilterValue string
 }
 
 // SetupWithManager initializes this controller with a manager.
-func (r *AzureJSONTemplateReconciler) SetupWithManager(mgr ctrl.Manager, options controller.Options) error {
+func (r *AzureJSONTemplateReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, options controller.Options) error {
+	_, log, done := tele.StartSpanWithLogger(ctx,
+		"controllers.AzureJSONTemplateReconciler.SetupWithManager",
+	)
+	defer done()
+
 	return ctrl.NewControllerManagedBy(mgr).
 		WithOptions(options).
 		For(&infrav1.AzureMachineTemplate{}).
+		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(log, r.WatchFilterValue)).
 		Owns(&corev1.Secret{}).
 		Complete(r)
 }
 
-// Reconcile reconciles azure json secrets for azure machine templates
-func (r *AzureJSONTemplateReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, reterr error) {
-	ctx, cancel := context.WithTimeout(context.Background(), reconciler.DefaultedLoopTimeout(r.ReconcileTimeout))
+// Reconcile reconciles Azure json secrets for Azure machine templates.
+func (r *AzureJSONTemplateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
+	ctx, cancel := context.WithTimeout(ctx, reconciler.DefaultedLoopTimeout(r.ReconcileTimeout))
 	defer cancel()
-	log := r.Log.WithValues("namespace", req.Namespace, "azureMachineTemplate", req.Name)
 
-	ctx, span := tele.Tracer().Start(ctx, "controllers.AzureJSONTemplateReconciler.Reconcile",
-		trace.WithAttributes(
-			label.String("namespace", req.Namespace),
-			label.String("name", req.Name),
-			label.String("kind", "AzureMachineTemplate"),
-		))
-	defer span.End()
+	ctx, log, done := tele.StartSpanWithLogger(ctx, "controllers.AzureJSONTemplateReconciler.Reconcile",
+		tele.KVP("namespace", req.Namespace),
+		tele.KVP("name", req.Name),
+		tele.KVP("kind", "AzureMachineTemplate"),
+	)
+	defer done()
 
 	// Fetch the AzureMachineTemplate instance
 	azureMachineTemplate := &infrav1.AzureMachineTemplate{}
@@ -121,14 +124,13 @@ func (r *AzureJSONTemplateReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	}
 
 	// Create the scope.
-	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
+	clusterScope, err := scope.NewClusterScope(ctx, scope.ClusterScopeParams{
 		Client:       r.Client,
-		Logger:       log,
 		Cluster:      cluster,
 		AzureCluster: azureCluster,
 	})
 	if err != nil {
-		return reconcile.Result{}, errors.Errorf("failed to create scope: %+v", err)
+		return reconcile.Result{}, errors.Wrap(err, "failed to create scope")
 	}
 
 	apiVersion, kind := infrav1.GroupVersion.WithKind("AzureMachineTemplate").ToAPIVersionAndKind()
@@ -142,7 +144,18 @@ func (r *AzureJSONTemplateReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	// Construct secret for this machine template
 	userAssignedIdentityIfExists := ""
 	if len(azureMachineTemplate.Spec.Template.Spec.UserAssignedIdentities) > 0 {
-		userAssignedIdentityIfExists = azureMachineTemplate.Spec.Template.Spec.UserAssignedIdentities[0].ProviderID
+		// TODO: remove this ClientID lookup code when the fixed cloud-provider-azure is default
+		idsClient := identities.NewClient(clusterScope)
+		userAssignedIdentityIfExists, err = idsClient.GetClientID(
+			ctx, azureMachineTemplate.Spec.Template.Spec.UserAssignedIdentities[0].ProviderID)
+		if err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "failed to get user-assigned identity ClientID")
+		}
+	}
+
+	if azureMachineTemplate.Spec.Template.Spec.Identity == infrav1.VMIdentityNone {
+		log.Info(fmt.Sprintf("WARNING, %s", spIdentityWarning))
+		r.Recorder.Eventf(azureMachineTemplate, corev1.EventTypeWarning, "VMIdentityNone", spIdentityWarning)
 	}
 
 	newSecret, err := GetCloudProviderSecret(
@@ -155,10 +168,10 @@ func (r *AzureJSONTemplateReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result
 	)
 
 	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "failed to create cloud provider config")
+		return ctrl.Result{}, errors.Wrap(err, "failed to create cloud provider config")
 	}
 
-	if err := reconcileAzureSecret(ctx, log, r.Client, owner, newSecret, clusterScope.ClusterName()); err != nil {
+	if err := reconcileAzureSecret(ctx, r.Client, owner, newSecret, clusterScope.ClusterName()); err != nil {
 		r.Recorder.Eventf(azureMachineTemplate, corev1.EventTypeWarning, "Error reconciling cloud provider secret for AzureMachineTemplate", err.Error())
 		return ctrl.Result{}, errors.Wrap(err, "failed to reconcile azure secret")
 	}

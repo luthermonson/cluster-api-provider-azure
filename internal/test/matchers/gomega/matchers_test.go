@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-
 	"sigs.k8s.io/cluster-api-provider-azure/internal/test/record"
 )
 
@@ -123,7 +122,7 @@ func TestLogContainsEntries(t *testing.T) {
 				"Cluster is not paused, allowing further processing",
 			},
 			LogFunc: "Error",
-			Level:   4,
+			Level:   6,
 		},
 	}
 

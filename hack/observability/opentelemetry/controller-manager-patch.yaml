@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: capz-system
+  name: capz-controller-manager
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          args:
+            - "--metrics-bind-addr=:8080"
+            - "--leader-elect"
+            - "--feature-gates=MachinePool=${EXP_MACHINE_POOL:=false},AKS=${EXP_AKS:=false}"
+            - "--enable-tracing"

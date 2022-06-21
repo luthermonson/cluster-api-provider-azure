@@ -17,6 +17,7 @@ limitations under the License.
 package env
 
 import (
+	"context"
 	"fmt"
 	"go/build"
 	"io/ioutil"
@@ -31,29 +32,27 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/onsi/ginkgo"
 	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	clusterv1exp "sigs.k8s.io/cluster-api/exp/api/v1alpha3"
-
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"k8s.io/klog/v2"
+	infrav1alpha3 "sigs.k8s.io/cluster-api-provider-azure/api/v1alpha3"
+	infrav1alpha4 "sigs.k8s.io/cluster-api-provider-azure/api/v1alpha4"
+	infrav1 "sigs.k8s.io/cluster-api-provider-azure/api/v1beta1"
+	infrav1exp "sigs.k8s.io/cluster-api-provider-azure/exp/api/v1beta1"
+	"sigs.k8s.io/cluster-api-provider-azure/internal/test/record"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1exp "sigs.k8s.io/cluster-api/exp/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-
-	infrav1alpha2 "sigs.k8s.io/cluster-api-provider-azure/api/v1alpha2"
-	infrav1 "sigs.k8s.io/cluster-api-provider-azure/api/v1alpha3"
-	infrav1exp "sigs.k8s.io/cluster-api-provider-azure/exp/api/v1alpha3"
-	"sigs.k8s.io/cluster-api-provider-azure/internal/test/record"
 )
 
 var (
 	logger                 = record.NewLogger(record.WithThreshold(to.IntPtr(1)), record.WithWriter(ginkgo.GinkgoWriter))
 	scheme                 = runtime.NewScheme()
 	env                    *envtest.Environment
-	clusterAPIVersionRegex = regexp.MustCompile("^(\\W)sigs.k8s.io/cluster-api v(.+)")
+	clusterAPIVersionRegex = regexp.MustCompile(`^(\W)sigs.k8s.io/cluster-api v(.+)`)
 )
 
 func init() {
@@ -63,7 +62,8 @@ func init() {
 	utilruntime.Must(clusterv1exp.AddToScheme(scheme))
 	utilruntime.Must(infrav1.AddToScheme(scheme))
 	utilruntime.Must(infrav1exp.AddToScheme(scheme))
-	utilruntime.Must(infrav1alpha2.AddToScheme(scheme))
+	utilruntime.Must(infrav1alpha3.AddToScheme(scheme))
+	utilruntime.Must(infrav1alpha4.AddToScheme(scheme))
 
 	// Get the root of the current file to use in CRD paths.
 	_, filename, _, _ := goruntime.Caller(0) //nolint
@@ -90,7 +90,7 @@ type (
 		manager.Manager
 		client.Client
 		Config      *rest.Config
-		Log         logr.Logger
+		Log         logr.LogSink
 		LogRecorder *record.Logger
 		doneMgr     chan struct{}
 	}
@@ -108,7 +108,6 @@ func NewTestEnvironment() *TestEnvironment {
 	mgr, err := manager.New(env.Config, manager.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: "0",
-		NewClient:          ManagerDelegatingClientFunc,
 	})
 	if err != nil {
 		klog.Fatalf("Failed to start testenv manager: %v", err)
@@ -125,33 +124,11 @@ func NewTestEnvironment() *TestEnvironment {
 }
 
 func (t *TestEnvironment) StartManager() error {
-	return t.Manager.Start(t.doneMgr)
+	return t.Manager.Start(context.Background())
 }
 
 func (t *TestEnvironment) Stop() error {
-	go func() {
-		t.doneMgr <- struct{}{}
-	}()
 	return env.Stop()
-}
-
-// NewDelegatingClientFunc returns a manager.NewClientFunc to be used when creating
-// a new controller runtime manager.
-//
-// A delegating client reads from the cache and writes directly to the server.
-// This avoids getting unstructured objects directly from the server
-//
-// See issue: https://github.com/kubernetes-sigs/cluster-api/issues/1663
-func ManagerDelegatingClientFunc(cache cache.Cache, config *rest.Config, options client.Options) (client.Client, error) {
-	c, err := client.New(config, options)
-	if err != nil {
-		return nil, err
-	}
-	return &client.DelegatingClient{
-		Reader:       cache,
-		Writer:       c,
-		StatusClient: c,
-	}, nil
 }
 
 func getFilePathToCAPICRDs(root string) string {

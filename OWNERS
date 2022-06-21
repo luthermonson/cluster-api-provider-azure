@@ -10,6 +10,9 @@ reviewers:
   - cluster-api-azure-maintainers
   - cluster-api-azure-reviewers
 
-labels:
-  - sig/cluster-lifecycle
-  - area/provider/azure
+emeritus_approvers:
+  - awesomenix
+  - justaugustus
+  - nader-ziada
+  - ncdc
+  - shysank

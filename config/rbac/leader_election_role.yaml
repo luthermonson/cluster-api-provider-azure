@@ -7,7 +7,13 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - configmaps
+  - events
+  verbs:
+  - create
+- apiGroups:
+  - "coordination.k8s.io"
+  resources:
+  - leases
   verbs:
   - get
   - list
@@ -16,11 +22,3 @@ rules:
   - update
   - patch
   - delete
-- apiGroups:
-  - ""
-  resources:
-  - configmaps/status
-  verbs:
-  - get
-  - update
-  - patch

@@ -21,11 +21,28 @@ import (
 )
 
 const (
-	// ControlPlane machine label
+	// ControlPlane machine label.
 	ControlPlane string = "control-plane"
-	// Node machine label
+	// Node machine label.
 	Node string = "node"
 )
+
+// Future contains the data needed for an Azure long-running operation to continue across reconcile loops.
+type Future struct {
+	// Type describes the type of future, update, create, delete, etc.
+	Type string `json:"type"`
+
+	// ResourceGroup is the Azure resource group for the resource.
+	// +optional
+	ResourceGroup string `json:"resourceGroup,omitempty"`
+
+	// Name is the name of the Azure resource.
+	// +optional
+	Name string `json:"name,omitempty"`
+
+	// FutureData is the base64 url encoded json Azure AutoRest Future.
+	FutureData string `json:"futureData,omitempty"`
+}
 
 // NetworkSpec specifies what the Azure networking resources should look like.
 type NetworkSpec struct {
@@ -55,7 +72,7 @@ type VnetSpec struct {
 	Name string `json:"name"`
 
 	// CidrBlock is the CIDR block to be used when the provider creates a managed virtual network.
-	// DEPRECATED: Use CIDRBlocks instead
+	// Deprecated: Use CIDRBlocks instead
 	// +optional
 	CidrBlock string `json:"cidrBlock,omitempty"`
 
@@ -74,16 +91,16 @@ func (v *VnetSpec) IsManaged(clusterName string) bool {
 }
 
 // Subnets is a slice of Subnet.
-type Subnets []*SubnetSpec
+type Subnets []SubnetSpec
 
 // SecurityGroupRole defines the unique role of a security group.
 type SecurityGroupRole string
 
 const (
-	// SecurityGroupNode defines a Kubernetes workload node role
+	// SecurityGroupNode defines a Kubernetes workload node role.
 	SecurityGroupNode = SecurityGroupRole(Node)
 
-	// SecurityGroupControlPlane defines a Kubernetes control plane node role
+	// SecurityGroupControlPlane defines a Kubernetes control plane node role.
 	SecurityGroupControlPlane = SecurityGroupRole(ControlPlane)
 )
 
@@ -105,13 +122,13 @@ type RouteTable struct {
 type SecurityGroupProtocol string
 
 const (
-	// SecurityGroupProtocolAll is a wildcard for all IP protocols
+	// SecurityGroupProtocolAll is a wildcard for all IP protocols.
 	SecurityGroupProtocolAll = SecurityGroupProtocol("*")
 
-	// SecurityGroupProtocolTCP represents the TCP protocol in ingress rules
+	// SecurityGroupProtocolTCP represents the TCP protocol in ingress rules.
 	SecurityGroupProtocolTCP = SecurityGroupProtocol("Tcp")
 
-	// SecurityGroupProtocolUDP represents the UDP protocol in ingress rules
+	// SecurityGroupProtocolUDP represents the UDP protocol in ingress rules.
 	SecurityGroupProtocolUDP = SecurityGroupProtocol("Udp")
 )
 
@@ -138,7 +155,7 @@ type IngressRule struct {
 }
 
 // IngressRules is a slice of Azure ingress rules for security groups.
-type IngressRules []*IngressRule
+type IngressRules []IngressRule
 
 // LoadBalancerSpec defines an Azure load balancer.
 type LoadBalancerSpec struct {
@@ -242,7 +259,7 @@ type Image struct {
 	Marketplace *AzureMarketplaceImage `json:"marketplace,omitempty"`
 }
 
-// AzureMarketplaceImage defines an image in the Azure Marketplace to use for VM creation
+// AzureMarketplaceImage defines an image in the Azure Marketplace to use for VM creation.
 type AzureMarketplaceImage struct {
 	// Publisher is the name of the organization that created the image
 	// +kubebuilder:validation:MinLength=1
@@ -269,7 +286,7 @@ type AzureMarketplaceImage struct {
 	ThirdPartyImage bool `json:"thirdPartyImage"`
 }
 
-// AzureSharedGalleryImage defines an image in a Shared Image Gallery to use for VM creation
+// AzureSharedGalleryImage defines an image in a Shared Image Gallery to use for VM creation.
 type AzureSharedGalleryImage struct {
 	// SubscriptionID is the identifier of the subscription that contains the shared image gallery
 	// +kubebuilder:validation:MinLength=1
@@ -292,9 +309,9 @@ type AzureSharedGalleryImage struct {
 	Version string `json:"version"`
 }
 
-// AvailabilityZone specifies an Azure Availability Zone
+// AvailabilityZone specifies an Azure Availability Zone.
 //
-// DEPRECATED: Use FailureDomain instead
+// Deprecated: Use FailureDomain instead.
 type AvailabilityZone struct {
 	ID      *string `json:"id,omitempty"`
 	Enabled *bool   `json:"enabled,omitempty"`
@@ -321,7 +338,31 @@ type UserAssignedIdentity struct {
 	ProviderID string `json:"providerID"`
 }
 
+const (
+	// AzureIdentityBindingSelector is the label used to match with the AzureIdentityBinding
+	// For the controller to match an identity binding, it needs a [label] with the key `aadpodidbinding`
+	// whose value is that of the `selector:` field in the `AzureIdentityBinding`.
+	AzureIdentityBindingSelector = "capz-controller-aadpodidentity-selector"
+)
+
+// IdentityType represents different types of identities.
+// +kubebuilder:validation:Enum=ServicePrincipal;UserAssignedMSI
+type IdentityType string
+
+const (
+	// UserAssignedMSI represents a user-assigned identity.
+	UserAssignedMSI IdentityType = "UserAssignedMSI"
+
+	// ServicePrincipal represents a service principal.
+	ServicePrincipal IdentityType = "ServicePrincipal"
+)
+
 // OSDisk defines the operating system disk for a VM.
+//
+// WARNING: this requires any updates to ManagedDisk to be manually converted. This is due to the odd issue with
+// conversion-gen where the warning message generated uses a relative directory import rather than the fully
+// qualified import when generating outside of the GOPATH.
+// +k8s:conversion-gen=false
 type OSDisk struct {
 	OSType           string            `json:"osType"`
 	DiskSizeGB       int32             `json:"diskSizeGB"`
@@ -338,6 +379,8 @@ type DataDisk struct {
 	NameSuffix string `json:"nameSuffix"`
 	// DiskSizeGB is the size in GB to assign to the data disk.
 	DiskSizeGB int32 `json:"diskSizeGB"`
+	// +optional
+	ManagedDisk *ManagedDisk `json:"managedDisk,omitempty"`
 	// Lun Specifies the logical unit number of the data disk. This value is used to identify data disks within the VM and therefore must be unique for each data disk attached to a VM.
 	// The value must be between 0 and 63.
 	Lun *int32 `json:"lun,omitempty"`
@@ -369,10 +412,10 @@ type DiffDiskSettings struct {
 type SubnetRole string
 
 const (
-	// SubnetNode defines a Kubernetes workload node role
+	// SubnetNode defines a Kubernetes workload node role.
 	SubnetNode = SubnetRole(Node)
 
-	// SubnetControlPlane defines a Kubernetes control plane node role
+	// SubnetControlPlane defines a Kubernetes control plane node role.
 	SubnetControlPlane = SubnetRole(ControlPlane)
 )
 
@@ -389,7 +432,7 @@ type SubnetSpec struct {
 	Name string `json:"name"`
 
 	// CidrBlock is the CIDR block to be used when the provider creates a managed Vnet.
-	// DEPRECATED: Use CIDRBlocks instead
+	// Deprecated: Use CIDRBlocks instead
 	// +optional
 	CidrBlock string `json:"cidrBlock,omitempty"`
 
@@ -416,7 +459,7 @@ type SubnetSpec struct {
 func (n *NetworkSpec) GetControlPlaneSubnet() *SubnetSpec {
 	for _, sn := range n.Subnets {
 		if sn.Role == SubnetControlPlane {
-			return sn
+			return &sn
 		}
 	}
 	return nil
@@ -426,7 +469,7 @@ func (n *NetworkSpec) GetControlPlaneSubnet() *SubnetSpec {
 func (n *NetworkSpec) GetNodeSubnet() *SubnetSpec {
 	for _, sn := range n.Subnets {
 		if sn.Role == SubnetNode {
-			return sn
+			return &sn
 		}
 	}
 	return nil

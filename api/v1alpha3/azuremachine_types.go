@@ -17,7 +17,8 @@ limitations under the License.
 package v1alpha3
 
 import (
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	"sigs.k8s.io/cluster-api/errors"
@@ -29,7 +30,7 @@ const (
 	MachineFinalizer = "azuremachine.infrastructure.cluster.x-k8s.io"
 )
 
-// AzureMachineSpec defines the desired state of AzureMachine
+// AzureMachineSpec defines the desired state of AzureMachine.
 type AzureMachineSpec struct {
 	// ProviderID is the unique identifier as specified by the cloud provider.
 	// +optional
@@ -41,7 +42,7 @@ type AzureMachineSpec struct {
 	// as defined in Cluster API. This relates to an Azure Availability Zone
 	FailureDomain *string `json:"failureDomain,omitempty"`
 
-	// DEPRECATED: use FailureDomain instead
+	// Deprecated: use FailureDomain instead
 	AvailabilityZone AvailabilityZone `json:"availabilityZone,omitempty"`
 
 	// Image is used to provide details of an image to use during VM creation.
@@ -78,7 +79,7 @@ type AzureMachineSpec struct {
 	// DataDisk specifies the parameters that are used to add one or more data disks to the machine
 	DataDisks []DataDisk `json:"dataDisks,omitempty"`
 
-	// DEPRECATED: to support old clients, will be removed in v1alpha4
+	// Deprecated: to support old clients, will be removed in v1alpha4/v1beta1
 	Location string `json:"location"`
 
 	SSHPublicKey string `json:"sshPublicKey"`
@@ -106,7 +107,7 @@ type AzureMachineSpec struct {
 	// +optional
 	AcceleratedNetworking *bool `json:"acceleratedNetworking,omitempty"`
 
-	// SpotVMOptions allows the ability to specify the Machine should use a Spot VM
+	// SpotVMOptions allows the ability to specify the Machine should use a Spot VM.
 	// +optional
 	SpotVMOptions *SpotVMOptions `json:"spotVMOptions,omitempty"`
 
@@ -115,22 +116,21 @@ type AzureMachineSpec struct {
 	SecurityProfile *SecurityProfile `json:"securityProfile,omitempty"`
 }
 
-// SpotVMOptions defines the options relevant to running the Machine on Spot VMs
+// SpotVMOptions defines the options relevant to running the Machine on Spot VMs.
 type SpotVMOptions struct {
 	// MaxPrice defines the maximum price the user is willing to pay for Spot VM instances
 	// +optional
-	// +kubebuilder:validation:Type=number
-	MaxPrice *string `json:"maxPrice,omitempty"`
+	MaxPrice *resource.Quantity `json:"maxPrice,omitempty"`
 }
 
-// AzureMachineStatus defines the observed state of AzureMachine
+// AzureMachineStatus defines the observed state of AzureMachine.
 type AzureMachineStatus struct {
 	// Ready is true when the provider resource is ready.
 	// +optional
 	Ready bool `json:"ready"`
 
 	// Addresses contains the Azure instance associated addresses.
-	Addresses []v1.NodeAddress `json:"addresses,omitempty"`
+	Addresses []corev1.NodeAddress `json:"addresses,omitempty"`
 
 	// VMState is the provisioning state of the Azure virtual machine.
 	// +optional
@@ -187,10 +187,9 @@ type AzureMachineStatus struct {
 // +kubebuilder:printcolumn:name="VM ID",type="string",priority=1,JSONPath=".spec.providerID",description="Azure VM ID"
 // +kubebuilder:printcolumn:name="VM Size",type="string",priority=1,JSONPath=".spec.vmSize",description="Azure VM Size"
 // +kubebuilder:resource:path=azuremachines,scope=Namespaced,categories=cluster-api
-// +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 
-// AzureMachine is the Schema for the azuremachines API
+// AzureMachine is the Schema for the azuremachines API.
 type AzureMachine struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -201,7 +200,7 @@ type AzureMachine struct {
 
 // +kubebuilder:object:root=true
 
-// AzureMachineList contains a list of AzureMachine
+// AzureMachineList contains a list of AzureMachines.
 type AzureMachineList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
@@ -213,7 +212,7 @@ func (m *AzureMachine) GetConditions() clusterv1.Conditions {
 	return m.Status.Conditions
 }
 
-// SetConditions will set the given conditions on an AzureMachine object
+// SetConditions will set the given conditions on an AzureMachine object.
 func (m *AzureMachine) SetConditions(conditions clusterv1.Conditions) {
 	m.Status.Conditions = conditions
 }

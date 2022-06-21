@@ -23,76 +23,61 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+# Install kubectl
 REPO_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
-cd "${REPO_ROOT}" || exit 1
+KUBECTL="${REPO_ROOT}/hack/tools/bin/kubectl"
+cd "${REPO_ROOT}" && make "${KUBECTL##*/}"
 
-# shellcheck source=../hack/ensure-go.sh
+# shellcheck source=hack/ensure-go.sh
 source "${REPO_ROOT}/hack/ensure-go.sh"
-# shellcheck source=../hack/ensure-kind.sh
+# shellcheck source=hack/ensure-kind.sh
 source "${REPO_ROOT}/hack/ensure-kind.sh"
-# shellcheck source=../hack/ensure-kubectl.sh
-source "${REPO_ROOT}/hack/ensure-kubectl.sh"
-# shellcheck source=../hack/ensure-kustomize.sh
+# shellcheck source=hack/ensure-kustomize.sh
 source "${REPO_ROOT}/hack/ensure-kustomize.sh"
-# shellcheck source=../hack/parse-prow-creds.sh
+# shellcheck source=hack/ensure-tags.sh
+source "${REPO_ROOT}/hack/ensure-tags.sh"
+# shellcheck source=hack/parse-prow-creds.sh
 source "${REPO_ROOT}/hack/parse-prow-creds.sh"
+# shellcheck source=hack/util.sh
+source "${REPO_ROOT}/hack/util.sh"
 
 # Verify the required Environment Variables are present.
-: "${AZURE_SUBSCRIPTION_ID:?Environment variable empty or not defined.}"
-: "${AZURE_TENANT_ID:?Environment variable empty or not defined.}"
-: "${AZURE_CLIENT_ID:?Environment variable empty or not defined.}"
-: "${AZURE_CLIENT_SECRET:?Environment variable empty or not defined.}"
+capz::util::ensure_azure_envs
 
-get_random_region() {
-    local REGIONS=("eastus" "eastus2" "southcentralus" "westus2" "westeurope")
-    echo "${REGIONS[${RANDOM} % ${#REGIONS[@]}]}"
-}
-
-export LOCAL_ONLY=${LOCAL_ONLY:-"false"}
+export LOCAL_ONLY=${LOCAL_ONLY:-"true"}
 
 if [[ "${LOCAL_ONLY}" == "true" ]]; then
   export REGISTRY="localhost:5000/ci-e2e"
 else
-  export REGISTRY=${REGISTRY:-"capzci.azurecr.io/ci-e2e"}
-
-  if [[ "${REGISTRY}" =~ azurecr\.io ]]; then
-    # if we are using Azure Container Registry, login
-    ./hack/ensure-azcli.sh
-    az account set -s "${AZURE_SUBSCRIPTION_ID}"
-    az acr login --name capzci
+  : "${REGISTRY:?Environment variable empty or not defined.}"
+  "${REPO_ROOT}"/hack/ensure-acr-login.sh
+  if [[ "$(capz::util::should_build_kubernetes)" == "true" ]]; then
+    export E2E_ARGS="-kubetest.use-pr-artifacts"
+    export KUBE_BUILD_CONFORMANCE="y"
+    source "${REPO_ROOT}/scripts/ci-build-kubernetes.sh"
   fi
 fi
 
 defaultTag=$(date -u '+%Y%m%d%H%M%S')
 export TAG="${defaultTag:-dev}"
-export AZURE_ENVIRONMENT="AzurePublicCloud"
-export GINKGO_NODES=3
-export AZURE_SUBSCRIPTION_ID_B64="$(echo -n "$AZURE_SUBSCRIPTION_ID" | base64 | tr -d '\n')"
-export AZURE_TENANT_ID_B64="$(echo -n "$AZURE_TENANT_ID" | base64 | tr -d '\n')"
-export AZURE_CLIENT_ID_B64="$(echo -n "$AZURE_CLIENT_ID" | base64 | tr -d '\n')"
-export AZURE_CLIENT_SECRET_B64="$(echo -n "$AZURE_CLIENT_SECRET" | base64 | tr -d '\n')"
-export AZURE_LOCATION="${AZURE_LOCATION:-$(get_random_region)}"
+export GINKGO_NODES=1
+
+export AZURE_LOCATION="${AZURE_LOCATION:-$(capz::util::get_random_region)}"
 export AZURE_CONTROL_PLANE_MACHINE_TYPE="${AZURE_CONTROL_PLANE_MACHINE_TYPE:-"Standard_D2s_v3"}"
 export AZURE_NODE_MACHINE_TYPE="${AZURE_NODE_MACHINE_TYPE:-"Standard_D2s_v3"}"
+export WINDOWS="${WINDOWS:-false}"
 
 # Generate SSH key.
-AZURE_SSH_PUBLIC_KEY_FILE=${AZURE_SSH_PUBLIC_KEY_FILE:-""}
-if [ -z "${AZURE_SSH_PUBLIC_KEY_FILE}" ]; then
-    SSH_KEY_FILE=.sshkey
-    rm -f "${SSH_KEY_FILE}" 2>/dev/null
-    ssh-keygen -t rsa -b 2048 -f "${SSH_KEY_FILE}" -N '' 1>/dev/null
-    AZURE_SSH_PUBLIC_KEY_FILE="${SSH_KEY_FILE}.pub"
-fi
-export AZURE_SSH_PUBLIC_KEY_B64=$(cat "${AZURE_SSH_PUBLIC_KEY_FILE}" | base64 | tr -d '\r\n')
-
-# timestamp is in RFC-3339 format to match kubetest
-export TIMESTAMP="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-export JOB_NAME="${JOB_NAME:-"cluster-api-provider-azure-e2e"}"
+capz::util::generate_ssh_key
 
 cleanup() {
-    ${REPO_ROOT}/hack/log/redact.sh || true
+    "${REPO_ROOT}/hack/log/redact.sh" || true
 }
 
 trap cleanup EXIT
 
-make test-conformance
+if [[ "${WINDOWS}" == "true" ]]; then
+  make test-windows-upstream
+else
+  make test-conformance
+fi

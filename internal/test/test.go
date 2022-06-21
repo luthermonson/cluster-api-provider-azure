@@ -18,16 +18,11 @@ package test
 
 import (
 	"fmt"
-	"time"
 
 	"k8s.io/apimachinery/pkg/util/rand"
 )
 
-const (
-	DefaultEventualTimeout = 20 * time.Second
-)
-
-// RandomName will generate a random name "{prefix}-{rand(len)}"
-func RandomName(prefix string, len int) string {
-	return fmt.Sprintf("%s-%s", prefix, rand.String(len))
+// RandomName will generate a random name "{prefix}-{rand(len)}".
+func RandomName(prefix string, length int) string {
+	return fmt.Sprintf("%s-%s", prefix, rand.String(length))
 }

@@ -1,6 +1,24 @@
 namespace: default
 resources:
   - ../base
+  - ../../azure-cluster-identity
   - machine-deployment.yaml
+  - gpu-operator-resources-set.yaml
+
 patchesStrategicMerge:
-  - patches/kubeadm-controlplane.yaml
+  - patches/cluster.yaml
+  - ../../azure-cluster-identity/azurecluster-identity-ref.yaml  
+
+configMapGenerator:
+  - name: nvidia-clusterpolicy-crd
+    files:
+      - clusterpolicy-crd.yaml
+  - name: nvidia-gpu-operator-components
+    files:
+      - gpu-operator-components.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    type: generated
+  annotations:
+    note: generated

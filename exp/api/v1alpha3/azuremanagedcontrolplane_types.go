@@ -17,14 +17,12 @@ limitations under the License.
 package v1alpha3
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
-
 	infrav1 "sigs.k8s.io/cluster-api-provider-azure/api/v1alpha3"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 )
 
-// AzureManagedControlPlaneSpec defines the desired state of AzureManagedControlPlane
+// AzureManagedControlPlaneSpec defines the desired state of AzureManagedControlPlane.
 type AzureManagedControlPlaneSpec struct {
 	// Version defines the desired Kubernetes version.
 	// +kubebuilder:validation:MinLength:=2
@@ -34,7 +32,7 @@ type AzureManagedControlPlaneSpec struct {
 	ResourceGroupName string `json:"resourceGroupName"`
 
 	// NodeResourceGroupName is the name of the resource group
-	// containining cluster IaaS resources. Will be populated to default
+	// containing cluster IaaS resources. Will be populated to default
 	// in webhook.
 	NodeResourceGroupName string `json:"nodeResourceGroupName"`
 
@@ -69,9 +67,6 @@ type AzureManagedControlPlaneSpec struct {
 	// SSHPublicKey is a string literal containing an ssh public key base64 encoded.
 	SSHPublicKey string `json:"sshPublicKey"`
 
-	// DefaultPoolRef is the specification for the default pool, without which an AKS cluster cannot be created.
-	DefaultPoolRef corev1.LocalObjectReference `json:"defaultPoolRef"`
-
 	// DNSServiceIP is an IP address assigned to the Kubernetes DNS service.
 	// It must be within the Kubernetes service address range specified in serviceCidr.
 	// +optional
@@ -81,6 +76,21 @@ type AzureManagedControlPlaneSpec struct {
 	// +kubebuilder:validation:Enum=Basic;Standard
 	// +optional
 	LoadBalancerSKU *string `json:"loadBalancerSKU,omitempty"`
+
+	// AadProfile is Azure Active Directory configuration to integrate with AKS for aad authentication.
+	// +optional
+	AADProfile *AADProfile `json:"aadProfile,omitempty"`
+}
+
+// AADProfile - AAD integration managed by AKS.
+type AADProfile struct {
+	// Managed - Whether to enable managed AAD.
+	// +kubebuilder:validation:Required
+	Managed bool `json:"managed"`
+
+	// AdminGroupObjectIDs - AAD group object IDs that will have admin role of the cluster.
+	// +kubebuilder:validation:Required
+	AdminGroupObjectIDs []string `json:"adminGroupObjectIDs"`
 }
 
 // ManagedControlPlaneVirtualNetwork describes a virtual network required to provision AKS clusters.
@@ -96,7 +106,7 @@ type ManagedControlPlaneSubnet struct {
 	CIDRBlock string `json:"cidrBlock"`
 }
 
-// AzureManagedControlPlaneStatus defines the observed state of AzureManagedControlPlane
+// AzureManagedControlPlaneStatus defines the observed state of AzureManagedControlPlane.
 type AzureManagedControlPlaneStatus struct {
 	// Ready is true when the provider resource is ready.
 	// +optional
@@ -111,10 +121,9 @@ type AzureManagedControlPlaneStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=azuremanagedcontrolplanes,scope=Namespaced,categories=cluster-api,shortName=amcp
-// +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 
-// AzureManagedControlPlane is the Schema for the azuremanagedcontrolplanes API
+// AzureManagedControlPlane is the Schema for the azuremanagedcontrolplanes API.
 type AzureManagedControlPlane struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -125,7 +134,7 @@ type AzureManagedControlPlane struct {
 
 // +kubebuilder:object:root=true
 
-// AzureManagedControlPlaneList contains a list of AzureManagedControlPlane
+// AzureManagedControlPlaneList contains a list of AzureManagedControlPlanes.
 type AzureManagedControlPlaneList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

@@ -17,11 +17,12 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+REPO_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
+# shellcheck source=hack/util.sh
+source "${REPO_ROOT}/hack/util.sh"
+
 # Verify the required Environment Variables are present.
-: "${AZURE_SUBSCRIPTION_ID:?Environment variable empty or not defined.}"
-: "${AZURE_TENANT_ID:?Environment variable empty or not defined.}"
-: "${AZURE_CLIENT_ID:?Environment variable empty or not defined.}"
-: "${AZURE_CLIENT_SECRET:?Environment variable empty or not defined.}"
+capz::util::ensure_azure_envs
 
 make envsubst
 
@@ -30,33 +31,33 @@ export REGISTRY="${REGISTRY:-registry.local/fake}"
 # Cluster settings.
 export CLUSTER_NAME="${CLUSTER_NAME:-capz-test}"
 export AZURE_VNET_NAME=${CLUSTER_NAME}-vnet
-export AZURE_ENVIRONMENT="AzurePublicCloud"
 
 # Azure settings.
 export AZURE_LOCATION="${AZURE_LOCATION:-southcentralus}"
 export AZURE_RESOURCE_GROUP=${CLUSTER_NAME}
-export AZURE_SUBSCRIPTION_ID_B64="$(echo -n "$AZURE_SUBSCRIPTION_ID" | base64 | tr -d '\n')"
-export AZURE_TENANT_ID_B64="$(echo -n "$AZURE_TENANT_ID" | base64 | tr -d '\n')"
-export AZURE_CLIENT_ID_B64="$(echo -n "$AZURE_CLIENT_ID" | base64 | tr -d '\n')"
-export AZURE_CLIENT_SECRET_B64="$(echo -n "$AZURE_CLIENT_SECRET" | base64 | tr -d '\n')"
+
+AZURE_SUBSCRIPTION_ID_B64="$(echo -n "$AZURE_SUBSCRIPTION_ID" | base64 | tr -d '\n')"
+AZURE_TENANT_ID_B64="$(echo -n "$AZURE_TENANT_ID" | base64 | tr -d '\n')"
+AZURE_CLIENT_ID_B64="$(echo -n "$AZURE_CLIENT_ID" | base64 | tr -d '\n')"
+AZURE_CLIENT_SECRET_B64="$(echo -n "$AZURE_CLIENT_SECRET" | base64 | tr -d '\n')"
+
+export AZURE_SUBSCRIPTION_ID_B64 AZURE_TENANT_ID_B64 AZURE_CLIENT_ID_B64 AZURE_CLIENT_SECRET_B64
 
 # Machine settings.
 export CONTROL_PLANE_MACHINE_COUNT=${CONTROL_PLANE_MACHINE_COUNT:-3}
 export AZURE_CONTROL_PLANE_MACHINE_TYPE="${CONTROL_PLANE_MACHINE_TYPE:-Standard_D2s_v3}"
 export AZURE_NODE_MACHINE_TYPE="${NODE_MACHINE_TYPE:-Standard_D2s_v3}"
 export WORKER_MACHINE_COUNT=${WORKER_MACHINE_COUNT:-2}
-export KUBERNETES_VERSION="${KUBERNETES_VERSION:-v1.19.4}"
-export TEMPLATE_PATH="${TEMPLATE_PATH:-cluster-template.yaml}"
+export KUBERNETES_VERSION="${KUBERNETES_VERSION:-v1.22.1}"
+export CLUSTER_TEMPLATE="${CLUSTER_TEMPLATE:-cluster-template.yaml}"
+
+# identity secret settings.
+export AZURE_CLUSTER_IDENTITY_SECRET_NAME="cluster-identity-secret"
+export CLUSTER_IDENTITY_NAME=${CLUSTER_IDENTITY_NAME:="cluster-identity"} 
+export AZURE_CLUSTER_IDENTITY_SECRET_NAMESPACE="default"
 
 # Generate SSH key.
-SSH_KEY_FILE=${SSH_KEY_FILE:-""}
-if ! [ -n "$SSH_KEY_FILE" ]; then
-    SSH_KEY_FILE=.sshkey
-    rm -f "${SSH_KEY_FILE}" 2>/dev/null
-    ssh-keygen -t rsa -b 2048 -f "${SSH_KEY_FILE}" -N '' 1>/dev/null
-    echo "Machine SSH key generated in ${SSH_KEY_FILE}"
-fi
-export AZURE_SSH_PUBLIC_KEY_B64=$(cat "${SSH_KEY_FILE}.pub" | base64 | tr -d '\r\n')
+capz::util::generate_ssh_key
 
 echo "================ DOCKER BUILD ==============="
 PULL_POLICY=IfNotPresent make modules docker-build
@@ -66,6 +67,9 @@ make clean
 
 echo "================ KIND RESET ==============="
 make kind-reset
+
+echo "================ INSTALL TOOLS ==============="
+make install-tools
 
 echo "================ CREATE CLUSTER ==============="
 make create-cluster

@@ -1,3 +1,4 @@
+//go:build e2e
 // +build e2e
 
 /*
@@ -19,9 +20,12 @@ limitations under the License.
 package networkpolicy
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"path/filepath"
+	"time"
 
 	. "github.com/onsi/gomega"
 
@@ -35,8 +39,13 @@ import (
 	"k8s.io/kubectl/pkg/scheme"
 )
 
+const (
+	networkPolicyOperationTimeout             = 30 * time.Second
+	networkPolicyOperationSleepBetweenRetries = 3 * time.Second
+)
+
 // CreateNetworkPolicyFromFile will create a NetworkPolicy from file with a name
-func CreateNetworkPolicyFromFile(clientset *kubernetes.Clientset, filename, namespace string) error {
+func CreateNetworkPolicyFromFile(ctx context.Context, clientset *kubernetes.Clientset, filename, namespace string) error {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return err
@@ -51,7 +60,7 @@ func CreateNetworkPolicyFromFile(clientset *kubernetes.Clientset, filename, name
 
 	switch o := obj.(type) {
 	case *networkingv1.NetworkPolicy:
-		return createNetworkPolicyV1(clientset, namespace, obj.(*networkingv1.NetworkPolicy))
+		return createNetworkPolicyV1(ctx, clientset, namespace, obj.(*networkingv1.NetworkPolicy))
 	default:
 		return fmt.Errorf("Error: unsupported k8s manifest type %T", o)
 	}
@@ -59,22 +68,34 @@ func CreateNetworkPolicyFromFile(clientset *kubernetes.Clientset, filename, name
 	return nil
 }
 
-func createNetworkPolicyV1(clientset *kubernetes.Clientset, namespace string, networkPolicy *networkingv1.NetworkPolicy) error {
-	_, err := clientset.NetworkingV1().NetworkPolicies(namespace).Create(networkPolicy)
-	return err
+func createNetworkPolicyV1(ctx context.Context, clientset *kubernetes.Clientset, namespace string, networkPolicy *networkingv1.NetworkPolicy) error {
+	Eventually(func() error {
+		_, err := clientset.NetworkingV1().NetworkPolicies(namespace).Create(ctx, networkPolicy, metav1.CreateOptions{})
+		if err != nil {
+			log.Printf("failed trying to create NetworkPolicy (%s):%s\n", networkPolicy.Name, err.Error())
+			return err
+		}
+		return nil
+	}, networkPolicyOperationTimeout, networkPolicyOperationSleepBetweenRetries).Should(Succeed())
+	return nil
 }
 
 // DeleteNetworkPolicy will create a NetworkPolicy from file with a name
-func DeleteNetworkPolicy(clientset *kubernetes.Clientset, name, namespace string) {
-	opts := &metav1.DeleteOptions{}
-	err := clientset.NetworkingV1().NetworkPolicies(namespace).Delete(name, opts)
-	Expect(err).NotTo(HaveOccurred())
+func DeleteNetworkPolicy(ctx context.Context, clientset *kubernetes.Clientset, name, namespace string) {
+	opts := metav1.DeleteOptions{}
+	Eventually(func() error {
+		err := clientset.NetworkingV1().NetworkPolicies(namespace).Delete(ctx, name, opts)
+		if err != nil {
+			log.Printf("failed trying to delete NetworkPolicy (%s):%s\n", name, err.Error())
+			return err
+		}
+		return nil
+	}, networkPolicyOperationTimeout, networkPolicyOperationSleepBetweenRetries).Should(Succeed())
 }
 
 func EnsureOutboundInternetAccess(clientset *kubernetes.Clientset, config *restclient.Config, pods []v1.Pod) {
 	for _, pod := range pods {
-		err := CheckOutboundConnection(clientset, config, pod)
-		Expect(err).NotTo(HaveOccurred())
+		CheckOutboundConnection(clientset, config, pod)
 	}
 }
 
@@ -82,22 +103,17 @@ func EnsureConnectivityResultBetweenPods(clientset *kubernetes.Clientset, config
 	for _, fromPod := range fromPods {
 		for _, toPod := range toPods {
 			command := []string{"curl", "-S", "-s", "-o", "/dev/null", toPod.Status.PodIP}
-			err := e2e_pod.Exec(clientset, config, fromPod, command)
-			if shouldHaveConnection {
-				Expect(err).NotTo(HaveOccurred())
-			} else {
-				Expect(err).Should(HaveOccurred())
-			}
+			e2e_pod.Exec(clientset, config, fromPod, command, shouldHaveConnection)
 		}
 	}
 }
 
-func CheckOutboundConnection(clientset *kubernetes.Clientset, config *restclient.Config, pod v1.Pod) error {
+func CheckOutboundConnection(clientset *kubernetes.Clientset, config *restclient.Config, pod v1.Pod) {
 	command := []string{"curl", "-S", "-s", "-o", "/dev/null", "www.bing.com"}
-	return e2e_pod.Exec(clientset, config, pod, command)
+	e2e_pod.Exec(clientset, config, pod, command, true)
 }
 
-func ApplyNetworkPolicy(clientset *kubernetes.Clientset, nwpolicyName string, namespace string, nwpolicyFileName string, policyDir string) {
-	err := CreateNetworkPolicyFromFile(clientset, filepath.Join(policyDir, nwpolicyFileName), namespace)
+func ApplyNetworkPolicy(ctx context.Context, clientset *kubernetes.Clientset, nwpolicyName string, namespace string, nwpolicyFileName string, policyDir string) {
+	err := CreateNetworkPolicyFromFile(ctx, clientset, filepath.Join(policyDir, nwpolicyFileName), namespace)
 	Expect(err).NotTo(HaveOccurred())
 }

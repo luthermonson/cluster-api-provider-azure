@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright 2019 The Kubernetes Authors.
+# Copyright 2021 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,10 +18,12 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-RESOURCES_ROOT=$(dirname "${BASH_SOURCE[0]}")/resources
+CHART_RELEASE=${CHART_RELEASE:-0.1.5}
+JAEGER_ROOT=$(dirname "${BASH_SOURCE[0]}")
+CHART_ROOT=$JAEGER_ROOT/chart
 
-curl -s https://raw.githubusercontent.com/jaegertracing/jaeger-operator/master/deploy/crds/jaegertracing.io_jaegers_crd.yaml > "${RESOURCES_ROOT}/crds.yaml"
-curl -s https://raw.githubusercontent.com/jaegertracing/jaeger-operator/master/deploy/service_account.yaml > "${RESOURCES_ROOT}/service_account.yaml"
-curl -s https://raw.githubusercontent.com/jaegertracing/jaeger-operator/master/deploy/operator.yaml > "${RESOURCES_ROOT}/operator.yaml"
-curl -s https://raw.githubusercontent.com/jaegertracing/jaeger-operator/master/deploy/role.yaml > "${RESOURCES_ROOT}/role.yaml"
-curl -s https://raw.githubusercontent.com/jaegertracing/jaeger-operator/master/deploy/role_binding.yaml > "${RESOURCES_ROOT}/role_binding.yaml"
+rm -rf "$CHART_ROOT"
+# "tar" has no POSIX standard, so use only basic options and test with both BSD and GNU.
+wget -qO- https://github.com/hansehe/jaeger-all-in-one/raw/master/helm/charts/jaeger-all-in-one-"$CHART_RELEASE".tgz \
+    | tar xvz -C "$JAEGER_ROOT"
+mv "$JAEGER_ROOT"/jaeger-all-in-one "$CHART_ROOT"

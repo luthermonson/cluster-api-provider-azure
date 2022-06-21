@@ -1,7 +1,6 @@
 resources:
-  - ../../config
-  - jaeger
+  - ../../config/default
   - prometheus
 
 patchesStrategicMerge:
-  - jaeger/sidecar_injection.yaml
+  - opentelemetry/controller-manager-patch.yaml

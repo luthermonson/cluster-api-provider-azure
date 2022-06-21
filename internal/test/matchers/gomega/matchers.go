@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/onsi/gomega/matchers"
 	"github.com/onsi/gomega/types"
-
 	"sigs.k8s.io/cluster-api-provider-azure/internal/test/record"
 )
 
@@ -38,7 +38,32 @@ type (
 		WithLevel(int) LogMatcher
 		WithLogFunc(string) LogMatcher
 	}
+
+	cmpMatcher struct {
+		x    interface{}
+		diff string
+	}
 )
+
+// DiffEq will verify cmp.Diff(expected, actual) == "" using github.com/google/go-cmp/cmp.
+func DiffEq(x interface{}) types.GomegaMatcher {
+	return &cmpMatcher{
+		x: x,
+	}
+}
+
+func (c *cmpMatcher) Match(actual interface{}) (bool, error) {
+	c.diff = cmp.Diff(actual, c.x)
+	return c.diff == "", nil
+}
+
+func (c *cmpMatcher) FailureMessage(_ interface{}) string {
+	return c.diff
+}
+
+func (c *cmpMatcher) NegatedFailureMessage(_ interface{}) string {
+	return c.diff
+}
 
 func LogContains(values ...interface{}) LogMatcher {
 	return &logEntryMactcher{

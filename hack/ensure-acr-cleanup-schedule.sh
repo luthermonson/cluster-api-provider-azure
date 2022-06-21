@@ -18,7 +18,14 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-registry="ci-e2e/cluster-api-azure-controller-amd64"
+repos=$(az acr repository list -o tsv --name capzci)
 
-az acr task create --name midnight_ci_e2e_purge --cmd "acr purge --filter '${registry}:.* --ago 1d --untagged" \
+for repo in $repos
+do
+  filters+="--filter $repo:.* "
+done
+
+PURGE_CMD="acr purge $filters --ago 1d --untagged"
+
+az acr task create --name midnight_capz_purge --cmd "${PURGE_CMD}" \
   --schedule "0 0 * * *" --registry capzci --context /dev/null

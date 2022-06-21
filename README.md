@@ -27,26 +27,26 @@ See the [flavors documentation][flavors_doc] to know which cluster templates are
 
 ## Support Policy
 
+### Cluster API Versions
+
 This provider's versions are compatible with the following versions of Cluster API:
 
-|  | Cluster API `v1alpha2` (`v0.2.x`) | Cluster API `v1alpha3` (`v0.3.x`) |
-|---|---|---|
-|Azure Provider `v0.3.x` | ✓ |  |
-|Azure Provider `v0.4.x` |  | ✓ |
+| | Cluster API `v1alpha3` (`v0.3.x`) | Cluster API `v1alpha4` (`v0.4.x`) | Cluster API `v1beta1` (`v1.0.x`) |
+|---|---|---|---|
+|Azure Provider `v0.4.x` | ✓ |  |  |
+|Azure Provider `v0.5.x` |  | ✓ |  |
+|Azure Provider `v1.0.x` |  |  | ✓ |
 
-This provider's versions are able to install and manage the following versions of Kubernetes:
+### Kubernetes Versions
 
-|  | Azure Provider `v0.3.x` | Azure Provider `v0.4.x` |
-|---|---|---|
-| Kubernetes 1.15 | ✓ |  |
-| Kubernetes 1.16 | ✓ | ✓ |
-| Kubernetes 1.17 |  | ✓ |
-| Kubernetes 1.18 |  | ✓ |
-| Kubernetes 1.19 |  | ✓ |
+The Azure provider is able to install and manage the [versions of Kubernetes supported by the Cluster API (CAPI) project](https://cluster-api.sigs.k8s.io/reference/versions.html#supported-kubernetes-versions).
 
-Each version of Cluster API for Azure will attempt to support at least two Kubernetes versions e.g., Cluster API for Azure `v0.1` may support Kubernetes 1.13 and Kubernetes 1.14.
 
-**NOTE:** As the versioning for this project is tied to the versioning of Cluster API, future modifications to this policy may be made to more closely align with other providers in the Cluster API ecosystem.
+#### Managed Clusters (AKS)
+
+Managed Clusters (AKS) follow their own [Kubernetes version support policy](https://docs.microsoft.com/en-us/azure/aks/supported-kubernetes-versions?tabs=azure-cli#kubernetes-version-support-policy). Please use the Azure portal or CLI to [find the versions supported in your cluster's location](https://docs.microsoft.com/en-us/azure/aks/supported-kubernetes-versions?tabs=azure-cli#azure-portal-and-cli-versions).
+
+For more information on Kubernetes version support, see the [Cluster API book](https://cluster-api.sigs.k8s.io/reference/versions.html).
 
 ------
 
@@ -54,7 +54,7 @@ Each version of Cluster API for Azure will attempt to support at least two Kuber
 
 Please see our [Book](https://capz.sigs.k8s.io) for in-depth user documentation.
 
-Additional docs can be found in the `/docs` directory, and the [index is here](https://github.com/kubernetes-sigs/cluster-api-provider-azure/blob/master/docs/README.md).
+Additional docs can be found in the `/docs` directory, and the [index is here](https://github.com/kubernetes-sigs/cluster-api-provider-azure/blob/main/docs/README.md).
 
 
 ## Getting involved and contributing
@@ -64,7 +64,7 @@ maintainers and community, would love your suggestions, contributions, and help!
 Also, the maintainers can be contacted at any time to learn more about how to get
 involved.
 
-To set up your environment checkout the [development guide](https://github.com/kubernetes-sigs/cluster-api-provider-azure/blob/master/docs/development.md).
+To set up your environment checkout the [development guide](https://capz.sigs.k8s.io/developers/development.html).
 
 In the interest of getting more new people involved, we tag issues with
 [`good first issue`][good_first_issue].
@@ -82,10 +82,10 @@ do!
 
 This repository uses the Kubernetes bots.  See a full list of the commands [here][prow].
 
-### Implementer office hours
+### Office hours
 
-Maintainers hold office hours every two weeks, with sessions open to all
-developers working on this project.
+The community holds office hours every two weeks, with sessions open to all users and
+developers.
 
 Office hours are hosted on a zoom video chat every other Thursday
 at 08:00 (PT) / 11:00 (ET) / 16:00 (UTC),
@@ -104,7 +104,7 @@ If you think you have found a bug please follow the instructions below.
 - Please spend a small amount of time giving due diligence to the issue tracker. Your issue might be a duplicate.
 - Get the logs from the cluster controllers. Please paste this into your issue.
 - Open a [bug report][bug_report].
-- Remember users might be searching for your issue in the future, so please give it a meaningful title to helps others.
+- Remember users might be searching for your issue in the future, so please give it a meaningful title to help others.
 - Feel free to reach out to the cluster-api community on [kubernetes slack][slack_info].
 
 ### Tracking new features
@@ -113,7 +113,7 @@ We also use the issue tracker to track features. If you have an idea for a featu
 
 - Open a [feature request][feature_request].
 - Remember users might be searching for your issue in the future, so please
-  give it a meaningful title to helps others.
+  give it a meaningful title to help others.
 - Clearly define the use case, using concrete examples. EG: I type `this` and
   cluster-api-provider-azure does `that`.
 - Some of our larger features will require some design. If you would like to
@@ -130,7 +130,7 @@ We also use the issue tracker to track features. If you have an idea for a featu
 [prow]: https://go.k8s.io/bot-commands
 [bug_report]: https://github.com/kubernetes-sigs/cluster-api-provider-azure/issues/new?template=bug_report.md
 [feature_request]: https://github.com/kubernetes-sigs/cluster-api-provider-azure/issues/new?template=feature_request.md
-[slack_info]: https://github.com/kubernetes/community/blob/master/communication.md#social-media
+[slack_info]: https://github.com/kubernetes/community/tree/master/communication#slack
 [cluster_api]: https://github.com/kubernetes-sigs/cluster-api
 [quickstart]: https://cluster-api.sigs.k8s.io/user/quick-start.html
-[flavors_doc]: https://github.com/kubernetes-sigs/cluster-api-provider-azure/blob/master/templates/flavors/README.md
+[flavors_doc]: https://github.com/kubernetes-sigs/cluster-api-provider-azure/blob/main/templates/flavors/README.md

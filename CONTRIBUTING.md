@@ -31,26 +31,28 @@ If you're new to the project and want to help, but don't know where to start, we
 
 1. If you haven't already done so, sign a Contributor License Agreement (see details above).
 2. Fork the desired repo, develop and test your code changes.
-    1. See the [Development Guide](docs/development.md) for more instructions on setting up your environment and testing changes locally.
+    1. See the [Development Guide](https://capz.sigs.k8s.io/developers/development.html) for more instructions on setting up your environment and testing changes locally.
 3. Submit a pull request.
     1. All PRs should be labeled with one of the following kinds
-         - `/kind feature` for PRs releated to adding new features/tests
-         - `/kind bug` for PRs releated to bug fixes and patches
-         - `/kind api-change` for PRs releated to adding, removing, or otherwise changing an API
-         - `/kind cleanup` for PRs releated to code refactoring and cleanup
+         - `/kind feature` for PRs related to adding new features/tests
+         - `/kind bug` for PRs related to bug fixes and patches
+         - `/kind api-change` for PRs related to adding, removing, or otherwise changing an API
+         - `/kind cleanup` for PRs related to code refactoring and cleanup
          - `/kind deprecation` for PRs related to a feature/enhancement marked for deprecation.
-         - `/kind design` for PRs releated to design proposals
-         - `/kind documentation` for PRs releated to documentation
-         - `/kind failing-test` for PRs releated to to a consistently or frequently failing test.
+         - `/kind design` for PRs related to design proposals
+         - `/kind documentation` for PRs related to documentation
+         - `/kind failing-test` for PRs related to a consistently or frequently failing test.
          - `/kind flake` for PRs related to a flaky test.
-         - `/kind other` for PRs releated to updating dependencies, minor changes or other
+         - `/kind other` for PRs related to updating dependencies, minor changes or other
      2. If the PR requires additional action from users switching to a new release, include the string "action required" in the PR release-notes.
      3. All code changes must be covered by unit tests and E2E tests.
      4. All new features should come with user documentation.
- 4. Once the PR has been reviewed and is ready to be merged, commits should be [squashed](https://github.com/kubernetes/community/blob/master/contributors/guide/github-workflow.md#squash-commits). 
+ 4. Once the PR has been reviewed and is ready to be merged, commits should be [squashed](https://github.com/kubernetes/community/blob/master/contributors/guide/github-workflow.md#squash-commits).
     1. Ensure that commit message(s) are be meaningful and commit history is readable.
 
 All changes must be code reviewed. Coding conventions and standards are explained in the official [developer docs](https://github.com/kubernetes/community/tree/master/contributors/devel). Expect reviewers to request that you avoid common [go style mistakes](https://github.com/golang/go/wiki/CodeReviewComments) in your PRs.
+
+In case you want to run our E2E tests locally, please refer to [Testing](https://capz.sigs.k8s.io/developers/development.html#submitting-prs-and-testing) guide. An overview of our e2e-test jobs (and also all our other jobs) can be found in [Jobs](https://capz.sigs.k8s.io/developers/jobs.html).
 
 ## Backporting a Patch
 

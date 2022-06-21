@@ -18,151 +18,138 @@ package controllers
 
 import (
 	"context"
-	"sigs.k8s.io/cluster-api-provider-azure/cloud/services/privatedns"
 
 	"github.com/pkg/errors"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
-
-	azure "sigs.k8s.io/cluster-api-provider-azure/cloud"
-	"sigs.k8s.io/cluster-api-provider-azure/cloud/scope"
-	"sigs.k8s.io/cluster-api-provider-azure/cloud/services/groups"
-	"sigs.k8s.io/cluster-api-provider-azure/cloud/services/loadbalancers"
-	"sigs.k8s.io/cluster-api-provider-azure/cloud/services/publicips"
-	"sigs.k8s.io/cluster-api-provider-azure/cloud/services/resourceskus"
-	"sigs.k8s.io/cluster-api-provider-azure/cloud/services/routetables"
-	"sigs.k8s.io/cluster-api-provider-azure/cloud/services/securitygroups"
-	"sigs.k8s.io/cluster-api-provider-azure/cloud/services/subnets"
-	"sigs.k8s.io/cluster-api-provider-azure/cloud/services/virtualnetworks"
+	"sigs.k8s.io/cluster-api-provider-azure/azure"
+	"sigs.k8s.io/cluster-api-provider-azure/azure/scope"
+	"sigs.k8s.io/cluster-api-provider-azure/azure/services/bastionhosts"
+	"sigs.k8s.io/cluster-api-provider-azure/azure/services/groups"
+	"sigs.k8s.io/cluster-api-provider-azure/azure/services/loadbalancers"
+	"sigs.k8s.io/cluster-api-provider-azure/azure/services/natgateways"
+	"sigs.k8s.io/cluster-api-provider-azure/azure/services/privatedns"
+	"sigs.k8s.io/cluster-api-provider-azure/azure/services/publicips"
+	"sigs.k8s.io/cluster-api-provider-azure/azure/services/resourceskus"
+	"sigs.k8s.io/cluster-api-provider-azure/azure/services/routetables"
+	"sigs.k8s.io/cluster-api-provider-azure/azure/services/securitygroups"
+	"sigs.k8s.io/cluster-api-provider-azure/azure/services/subnets"
+	"sigs.k8s.io/cluster-api-provider-azure/azure/services/tags"
+	"sigs.k8s.io/cluster-api-provider-azure/azure/services/virtualnetworks"
+	"sigs.k8s.io/cluster-api-provider-azure/azure/services/vnetpeerings"
 	"sigs.k8s.io/cluster-api-provider-azure/util/tele"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
-// azureClusterReconciler is the reconciler called by the AzureCluster controller
-type azureClusterReconciler struct {
-	scope            *scope.ClusterScope
-	groupsSvc        azure.Service
-	vnetSvc          azure.Service
-	securityGroupSvc azure.Service
-	routeTableSvc    azure.Service
-	subnetsSvc       azure.Service
-	publicIPSvc      azure.Service
-	loadBalancerSvc  azure.Service
-	privateDNSSvc    azure.Service
-	skuCache         *resourceskus.Cache
+// azureClusterService is the reconciler called by the AzureCluster controller.
+type azureClusterService struct {
+	scope *scope.ClusterScope
+	// services is the list of services that are reconciled by this controller.
+	// The order of the services is important as it determines the order in which the services are reconciled.
+	services []azure.ServiceReconciler
+	skuCache *resourceskus.Cache
 }
 
-// newAzureClusterReconciler populates all the services based on input scope
-func newAzureClusterReconciler(scope *scope.ClusterScope) *azureClusterReconciler {
-	return &azureClusterReconciler{
-		scope:            scope,
-		groupsSvc:        groups.New(scope),
-		vnetSvc:          virtualnetworks.New(scope),
-		securityGroupSvc: securitygroups.New(scope),
-		routeTableSvc:    routetables.New(scope),
-		subnetsSvc:       subnets.New(scope),
-		publicIPSvc:      publicips.New(scope),
-		loadBalancerSvc:  loadbalancers.New(scope),
-		privateDNSSvc:    privatedns.New(scope),
-		skuCache:         resourceskus.NewCache(scope, scope.Location()),
+// newAzureClusterService populates all the services based on input scope.
+func newAzureClusterService(scope *scope.ClusterScope) (*azureClusterService, error) {
+	skuCache, err := resourceskus.GetCache(scope, scope.Location())
+	if err != nil {
+		return nil, errors.Wrap(err, "failed creating a NewCache")
 	}
+	return &azureClusterService{
+		scope: scope,
+		services: []azure.ServiceReconciler{
+			groups.New(scope),
+			virtualnetworks.New(scope),
+			securitygroups.New(scope),
+			routetables.New(scope),
+			publicips.New(scope),
+			natgateways.New(scope),
+			subnets.New(scope),
+			vnetpeerings.New(scope),
+			loadbalancers.New(scope),
+			privatedns.New(scope),
+			bastionhosts.New(scope),
+			tags.New(scope),
+		},
+		skuCache: skuCache,
+	}, nil
 }
 
-// Reconcile reconciles all the services in pre determined order
-func (r *azureClusterReconciler) Reconcile(ctx context.Context) error {
-	ctx, span := tele.Tracer().Start(ctx, "controllers.azureClusterReconciler.Reconcile")
-	defer span.End()
+// Reconcile reconciles all the services in a predetermined order.
+func (s *azureClusterService) Reconcile(ctx context.Context) error {
+	ctx, _, done := tele.StartSpanWithLogger(ctx, "controllers.azureClusterService.Reconcile")
+	defer done()
 
-	if err := r.setFailureDomainsForLocation(ctx); err != nil {
-		return errors.Wrapf(err, "failed to get availability zones")
+	if err := s.setFailureDomainsForLocation(ctx); err != nil {
+		return errors.Wrap(err, "failed to get availability zones")
 	}
 
-	r.scope.SetDNSName()
-	r.scope.SetControlPlaneIngressRules()
+	s.scope.SetDNSName()
+	s.scope.SetControlPlaneSecurityRules()
 
-	if err := r.groupsSvc.Reconcile(ctx); err != nil {
-		return errors.Wrapf(err, "failed to reconcile resource group")
-	}
-
-	if err := r.vnetSvc.Reconcile(ctx); err != nil {
-		return errors.Wrapf(err, "failed to reconcile virtual network")
-	}
-
-	if err := r.securityGroupSvc.Reconcile(ctx); err != nil {
-		return errors.Wrapf(err, "failed to reconcile network security group")
-	}
-
-	if err := r.routeTableSvc.Reconcile(ctx); err != nil {
-		return errors.Wrapf(err, "failed to reconcile route table")
-	}
-
-	if err := r.subnetsSvc.Reconcile(ctx); err != nil {
-		return errors.Wrapf(err, "failed to reconcile subnet")
-	}
-
-	if err := r.publicIPSvc.Reconcile(ctx); err != nil {
-		return errors.Wrapf(err, "failed to reconcile public IP")
-	}
-
-	if err := r.loadBalancerSvc.Reconcile(ctx); err != nil {
-		return errors.Wrapf(err, "failed to reconcile load balancer")
-	}
-
-	if err := r.privateDNSSvc.Reconcile(ctx); err != nil {
-		return errors.Wrapf(err, "failed to reconcile private dns")
-	}
-
-	return nil
-}
-
-// Delete reconciles all the services in pre determined order
-func (r *azureClusterReconciler) Delete(ctx context.Context) error {
-	ctx, span := tele.Tracer().Start(ctx, "controllers.azureClusterReconciler.Delete")
-	defer span.End()
-
-	if err := r.groupsSvc.Delete(ctx); err != nil {
-		if errors.Is(err, azure.ErrNotOwned) {
-			if err := r.privateDNSSvc.Delete(ctx); err != nil {
-				return errors.Wrapf(err, "failed to delete private dns")
-			}
-
-			if err := r.loadBalancerSvc.Delete(ctx); err != nil {
-				return errors.Wrapf(err, "failed to delete load balancer")
-			}
-
-			if err := r.publicIPSvc.Delete(ctx); err != nil {
-				return errors.Wrapf(err, "failed to delete public IP")
-			}
-
-			if err := r.subnetsSvc.Delete(ctx); err != nil {
-				return errors.Wrapf(err, "failed to delete subnet")
-			}
-
-			if err := r.routeTableSvc.Delete(ctx); err != nil {
-				return errors.Wrapf(err, "failed to delete route table")
-			}
-
-			if err := r.securityGroupSvc.Delete(ctx); err != nil {
-				return errors.Wrapf(err, "failed to delete network security group")
-			}
-
-			if err := r.vnetSvc.Delete(ctx); err != nil {
-				return errors.Wrapf(err, "failed to delete virtual network")
-			}
-		} else {
-			return errors.Wrapf(err, "failed to delete resource group")
+	for _, service := range s.services {
+		if err := service.Reconcile(ctx); err != nil {
+			return errors.Wrapf(err, "failed to reconcile AzureCluster service %s", service.Name())
 		}
 	}
 
 	return nil
 }
 
-func (r *azureClusterReconciler) setFailureDomainsForLocation(ctx context.Context) error {
-	zones, err := r.skuCache.GetZones(ctx, r.scope.Location())
+// Delete reconciles all the services in a predetermined order.
+func (s *azureClusterService) Delete(ctx context.Context) error {
+	ctx, _, done := tele.StartSpanWithLogger(ctx, "controllers.azureClusterService.Delete")
+	defer done()
+
+	groupSvc, err := s.getService(groups.ServiceName)
 	if err != nil {
-		return errors.Wrapf(err, "failed to get zones for location %s", r.scope.Location())
+		return errors.Wrap(err, "failed to get group service")
+	}
+
+	managed, err := groupSvc.IsManaged(ctx)
+	if err != nil {
+		if azure.ResourceNotFound(err) {
+			// If the resource group is not found, there is nothing to delete, return early.
+			return nil
+		}
+		return errors.Wrap(err, "failed to determine if the AzureCluster resource group is managed")
+	}
+	if managed {
+		// if the resource group is managed, we delete the entire resource group directly.
+		if err := groupSvc.Delete(ctx); err != nil {
+			return errors.Wrap(err, "failed to delete resource group")
+		}
+	} else {
+		// If the resource group is not managed we need to delete resources inside the group one by one.
+		// services are deleted in reverse order from the order in which they are reconciled.
+		for i := len(s.services) - 1; i >= 0; i-- {
+			if err := s.services[i].Delete(ctx); err != nil {
+				return errors.Wrapf(err, "failed to delete AzureCluster service %s", s.services[i].Name())
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *azureClusterService) getService(name string) (azure.ServiceReconciler, error) {
+	for _, service := range s.services {
+		if service.Name() == name {
+			return service, nil
+		}
+	}
+	return nil, errors.Errorf("service %s not found", name)
+}
+
+// setFailureDomainsForLocation sets the AzureCluster Status failure domains based on which Azure Availability Zones are available in the cluster location.
+// Note that this is not done in a webhook as it requires API calls to fetch the availability zones.
+func (s *azureClusterService) setFailureDomainsForLocation(ctx context.Context) error {
+	zones, err := s.skuCache.GetZones(ctx, s.scope.Location())
+	if err != nil {
+		return errors.Wrapf(err, "failed to get zones for location %s", s.scope.Location())
 	}
 
 	for _, zone := range zones {
-		r.scope.SetFailureDomain(zone, clusterv1.FailureDomainSpec{
+		s.scope.SetFailureDomain(zone, clusterv1.FailureDomainSpec{
 			ControlPlane: true,
 		})
 	}

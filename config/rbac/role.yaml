@@ -1,4 +1,3 @@
-
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -20,6 +19,12 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - namespaces
+  verbs:
+  - list
+- apiGroups:
+  - ""
+  resources:
   - secrets
   verbs:
   - create
@@ -30,6 +35,24 @@ rules:
   - update
   - watch
 - apiGroups:
+  - aadpodidentity.k8s.io
+  resources:
+  - azureidentities
+  - azureidentities/status
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - aadpodidentity.k8s.io
+  resources:
+  - azureidentitybindings
+  - azureidentitybindings/status
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - cluster.x-k8s.io
   resources:
   - clusters
@@ -38,6 +61,15 @@ rules:
   - get
   - list
   - patch
+  - watch
+- apiGroups:
+  - cluster.x-k8s.io
+  resources:
+  - machinepools
+  - machinepools/status
+  verbs:
+  - get
+  - list
   - watch
 - apiGroups:
   - cluster.x-k8s.io
@@ -57,18 +89,10 @@ rules:
   - list
   - watch
 - apiGroups:
-  - exp.cluster.x-k8s.io
+  - infrastructure.cluster.x-k8s.io
   resources:
-  - machinepools
-  - machinepools/status
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - exp.infrastructure.cluster.x-k8s.io
-  resources:
-  - azuremachinepools
+  - azureclusteridentities
+  - azureclusteridentities/status
   verbs:
   - create
   - delete
@@ -77,74 +101,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - exp.infrastructure.cluster.x-k8s.io
-  resources:
-  - azuremachinepools/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - exp.infrastructure.cluster.x-k8s.io
-  resources:
-  - azuremanagedclusters
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - exp.infrastructure.cluster.x-k8s.io
-  resources:
-  - azuremanagedclusters/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - exp.infrastructure.cluster.x-k8s.io
-  resources:
-  - azuremanagedcontrolplanes
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - exp.infrastructure.cluster.x-k8s.io
-  resources:
-  - azuremanagedcontrolplanes/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - exp.infrastructure.cluster.x-k8s.io
-  resources:
-  - azuremanagedmachinepools
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - exp.infrastructure.cluster.x-k8s.io
-  resources:
-  - azuremanagedmachinepools/status
-  verbs:
-  - get
-  - patch
-  - update
 - apiGroups:
   - infrastructure.cluster.x-k8s.io
   resources:
@@ -161,6 +117,46 @@ rules:
   - infrastructure.cluster.x-k8s.io
   resources:
   - azureclusters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - infrastructure.cluster.x-k8s.io
+  resources:
+  - azuremachinepoolmachines
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - infrastructure.cluster.x-k8s.io
+  resources:
+  - azuremachinepoolmachines/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - infrastructure.cluster.x-k8s.io
+  resources:
+  - azuremachinepools
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - infrastructure.cluster.x-k8s.io
+  resources:
+  - azuremachinepools/status
   verbs:
   - get
   - patch
@@ -194,3 +190,63 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - infrastructure.cluster.x-k8s.io
+  resources:
+  - azuremanagedclusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - infrastructure.cluster.x-k8s.io
+  resources:
+  - azuremanagedclusters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - infrastructure.cluster.x-k8s.io
+  resources:
+  - azuremanagedcontrolplanes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - infrastructure.cluster.x-k8s.io
+  resources:
+  - azuremanagedcontrolplanes/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - infrastructure.cluster.x-k8s.io
+  resources:
+  - azuremanagedmachinepools
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - infrastructure.cluster.x-k8s.io
+  resources:
+  - azuremanagedmachinepools/status
+  verbs:
+  - get
+  - patch
+  - update

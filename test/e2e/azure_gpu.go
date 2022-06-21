@@ -1,3 +1,4 @@
+//go:build e2e
 // +build e2e
 
 /*
@@ -20,7 +21,9 @@ package e2e
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"strings"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -28,6 +31,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/cluster-api/test/framework"
 )
 
@@ -61,6 +65,22 @@ func AzureGPUSpec(ctx context.Context, inputGetter func() AzureGPUSpecInput) {
 	clientset := clusterProxy.GetClientSet()
 	Expect(clientset).NotTo(BeNil())
 
+	By("Waiting for a node to have an \"nvidia.com/gpu\" allocatable resource")
+	Eventually(func() bool {
+		nodeList, err := clientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		for _, node := range nodeList.Items {
+			for k, v := range node.Status.Allocatable {
+				if k == "nvidia.com/gpu" && v.Value() > 0 {
+					return true
+				}
+			}
+		}
+		return false
+	}, e2eConfig.GetIntervals(specName, "wait-worker-nodes")...).Should(BeTrue(), func() string {
+		return getGPUOperatorPodLogs(ctx, clientset)
+	})
+
 	By("running a CUDA vector calculation job")
 	jobsClient := clientset.BatchV1().Jobs(corev1.NamespaceDefault)
 	jobName := "cuda-vector-add"
@@ -76,7 +96,7 @@ func AzureGPUSpec(ctx context.Context, inputGetter func() AzureGPUSpecInput) {
 					Containers: []corev1.Container{
 						{
 							Name:  jobName,
-							Image: "k8s.gcr.io/cuda-vector-add:v0.1",
+							Image: "nvcr.io/nvidia/k8s/cuda-sample:vectoradd-cuda11.2.1",
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
 									"nvidia.com/gpu": resource.MustParse("1"),
@@ -88,7 +108,8 @@ func AzureGPUSpec(ctx context.Context, inputGetter func() AzureGPUSpecInput) {
 			},
 		},
 	}
-	_, err := jobsClient.Create(gpuJob)
+	Log("starting to create CUDA vector calculation job")
+	_, err := jobsClient.Create(ctx, gpuJob, metav1.CreateOptions{})
 	Expect(err).NotTo(HaveOccurred())
 	gpuJobInput := WaitForJobCompleteInput{
 		Getter:    jobsClientAdapter{client: jobsClient},
@@ -96,4 +117,24 @@ func AzureGPUSpec(ctx context.Context, inputGetter func() AzureGPUSpecInput) {
 		Clientset: clientset,
 	}
 	WaitForJobComplete(ctx, gpuJobInput, e2eConfig.GetIntervals(specName, "wait-job")...)
+}
+
+// getGPUOperatorPodLogs returns the logs of the Nvidia GPU operator pods.
+func getGPUOperatorPodLogs(ctx context.Context, clientset *kubernetes.Clientset) string {
+	podsClient := clientset.CoreV1().Pods(corev1.NamespaceAll)
+	var pods *corev1.PodList
+	var err error
+	Eventually(func() error {
+		pods, err = podsClient.List(ctx, metav1.ListOptions{LabelSelector: "app.kubernetes.io/instance=gpu-operator"})
+		if err != nil {
+			LogWarning(err.Error())
+		}
+		return err
+	}, retryableOperationTimeout, retryableOperationSleepBetweenRetries).Should(Succeed())
+	b := strings.Builder{}
+	for _, pod := range pods.Items {
+		b.WriteString(fmt.Sprintf("\nLogs for pod %s:\n", pod.Name))
+		b.WriteString(getPodLogs(ctx, clientset, pod))
+	}
+	return b.String()
 }

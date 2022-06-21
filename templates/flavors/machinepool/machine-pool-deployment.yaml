@@ -1,5 +1,5 @@
 ---
-apiVersion: exp.cluster.x-k8s.io/v1alpha3
+apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachinePool
 metadata:
   name: "${CLUSTER_NAME}-mp-0"
@@ -13,19 +13,25 @@ spec:
       bootstrap:
         configRef:
           name: "${CLUSTER_NAME}-mp-0"
-          apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
+          apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
           kind: KubeadmConfig
       infrastructureRef:
         name: "${CLUSTER_NAME}-mp-0"
-        apiVersion: exp.infrastructure.cluster.x-k8s.io/v1alpha3
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: AzureMachinePool
 ---
-apiVersion: exp.infrastructure.cluster.x-k8s.io/v1alpha3
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AzureMachinePool
 metadata:
   name: "${CLUSTER_NAME}-mp-0"
 spec:
   location: ${AZURE_LOCATION}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 1
+      deletePolicy: Oldest
   template:
     vmSize: ${AZURE_NODE_MACHINE_TYPE}
     osDisk:
@@ -35,18 +41,18 @@ spec:
         storageAccountType: "Premium_LRS"
     sshPublicKey: ${AZURE_SSH_PUBLIC_KEY_B64:=""}
 ---
-apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
 kind: KubeadmConfig
 metadata:
   name: "${CLUSTER_NAME}-mp-0"
 spec:
-  useExperimentalRetryJoin: true
   joinConfiguration:
     nodeRegistration:
       name: '{{ ds.meta_data["local_hostname"] }}'
       kubeletExtraArgs:
         cloud-provider: azure
         cloud-config: /etc/kubernetes/azure.json
+        azure-container-registry-config: /etc/kubernetes/azure.json
   files:
   - contentFrom:
       secret:

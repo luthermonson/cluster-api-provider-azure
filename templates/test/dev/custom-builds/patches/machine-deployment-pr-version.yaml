@@ -1,0 +1,44 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureMachineTemplate
+metadata:
+  name: ${CLUSTER_NAME}-control-plane
+spec:
+  template:
+    spec:
+      image:
+        # we use the latest image as a workaround there is no published marketplace image for k8s CI versions.
+        # latest binaries and images will get replaced to the desired version by the script above.
+        marketplace:
+          publisher: cncf-upstream
+          offer: capi
+          sku: ubuntu-1804-gen1
+          version: latest
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureMachineTemplate
+metadata:
+  name: ${CLUSTER_NAME}-md-0
+spec:
+  template:
+    spec:
+      image:
+        # we use the latest image as a workaround there is no published marketplace image for k8s CI versions.
+        # latest binaries and images will get replaced to the desired version by the script above.
+        marketplace:
+          publisher: cncf-upstream
+          offer: capi
+          sku: ubuntu-1804-gen1
+          version: latest
+---
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+kind: KubeadmControlPlane
+metadata:
+  annotations:
+    controlplane.cluster.x-k8s.io/skip-kube-proxy: "true"
+  name: ${CLUSTER_NAME}-control-plane
+  namespace: default
+spec:
+  kubeadmConfigSpec:
+    clusterConfiguration:
+      kubernetesVersion: ci/${CI_VERSION}
+    useExperimentalRetryJoin: true

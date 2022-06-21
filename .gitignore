@@ -28,6 +28,8 @@ envfile
 kind.kubeconfig
 minikube.kubeconfig
 kubeconfig
+!kubeconfig/
+*.kubeconfig
 
 # ssh keys
 .ssh*
@@ -37,6 +39,7 @@ kubeconfig
 
 # vscode
 .vscode
+*.code-workspace
 
 # goland
 .idea
@@ -62,6 +65,18 @@ test/e2e/config/azure-dev-envsubst.yaml
 test/e2e/logs/*
 _artifacts
 
+# E2E test templates
+test/e2e/data/infrastructure-azure/v1beta1/cluster-template*.yaml
+
 # boilerplate_test output
 hack/boilerplate/__pycache__
 hack/boilerplate/*.pyc
+
+# Helm chart caching
+.helm/
+
+# release notes
+_releasenotes
+
+# calico manifests archive
+release-*/manifests/calico-*.yaml

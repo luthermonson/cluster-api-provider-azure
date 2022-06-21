@@ -3,10 +3,10 @@
 In `clusterctl` the infrastructure provider authors can provide different type of cluster templates,
 or flavors; use the --flavor flag to specify which flavor to use; e.g
 ```shell
-clusterctl config cluster my-cluster --kubernetes-version v1.19.4 \
+clusterctl config cluster my-cluster --kubernetes-version v1.22.1 \
     --flavor external-cloud-provider > my-cluster.yaml
 ```
-See [`clusterctl` flavors docs](https://cluster-api.sigs.k8s.io/clusterctl/commands/config-cluster.html#flavors).
+See [`clusterctl` flavors docs](https://cluster-api.sigs.k8s.io/clusterctl/commands/generate-cluster.html#flavors).
 
 This directory contains each of the flavors for CAPZ. Each directory besides `base` will be used to
 create a flavor by running `kustomize build` on the directory. The name of the directory will be
@@ -18,9 +18,6 @@ To generate all CAPZ flavors, run `make generate-flavors`.
 
 ## Running flavor clusters as a tilt resource
 
-#### From CLI
-run ```tilt up ${flavors}``` to spin up worker clusters in Azure represented by a Tilt local resource.  You can also modify flavors while Tilt is up by running ```tilt args ${flavors}```
-
 #### From Tilt Config
 Tilt will auto-detect all available flavors from the `templates` directory.
 
@@ -29,14 +26,20 @@ Please note your tilt-settings.json must contain at minimum the following fields
 ```json
 {
     "kustomize_substitutions": {
-        "AZURE_SUBSCRIPTION_ID_B64": "******",
-        "AZURE_TENANT_ID_B64": "******",
-        "AZURE_CLIENT_SECRET_B64": "******",
-        "AZURE_CLIENT_ID_B64": "******"
+        "AZURE_SUBSCRIPTION_ID": "******",
+        "AZURE_TENANT_ID": "******",
+        "AZURE_CLIENT_SECRET": "******",
+        "AZURE_CLIENT_ID": "******"
     }
 }
 ```
+After updating tilt-settings.json, follow these two steps to deploy a workload cluster:
 
+1. Run ``make tilt up`` in the root of cluster-api-provider-azure repo. Note that the tilt-settings.json also resides here in the 
+root of this repo. After tilt has initialized, press `space` to open the tilt web UI in a browser. See the following example:
+   ![plot](../../docs/book/theme/tilt-up.png)
+2. Once your browser is open, click the clockwise arrow icon ⟳ on a resource listed. For example, `default` to deploy a default flavor.
+   ![plot](../../docs/book/theme/flavour-deploy-from-ui.png)
 #### Defining Variable Overrides
 If you wish to override the default variables for flavor workers, you can specify them as part of your tilt-settings.json as seen in the example below.  Please note, the precedence of variables is as follows:
 
@@ -48,11 +51,10 @@ If you wish to override the default variables for flavor workers, you can specif
 ```json
 {
     "kustomize_substitutions": {
-        "AZURE_SUBSCRIPTION_ID_B64": "****",
-        "AZURE_TENANT_ID_B64": "****",
-        "AZURE_CLIENT_SECRET_B64": "****",
-        "AZURE_CLIENT_ID_B64": "****",
-        "AZURE_ENVIRONMENT": "AzureChinaCloud"
+        "AZURE_SUBSCRIPTION_ID": "****",
+        "AZURE_TENANT_ID": "****",
+        "AZURE_CLIENT_SECRET": "****",
+        "AZURE_CLIENT_ID": "****"
     },
     "worker-templates": {
         "flavors": {
@@ -70,7 +72,7 @@ If you wish to override the default variables for flavor workers, you can specif
             "AZURE_LOCATION": "eastus",
             "AZURE_RESOURCE_GROUP": "test-resource-group-name",
             "CONTROL_PLANE_MACHINE_COUNT": "1",
-            "KUBERNETES_VERSION": "v1.19.4",
+            "KUBERNETES_VERSION": "v1.22.1",
             "AZURE_CONTROL_PLANE_MACHINE_TYPE": "Standard_D2s_v3",
             "WORKER_MACHINE_COUNT": "2",
             "AZURE_NODE_MACHINE_TYPE": "Standard_D2s_v3"
@@ -85,11 +87,10 @@ N-series node type just for the `nvidia-gpu` flavor in `tilt-settings.json` to o
 ```json
 {
     "kustomize_substitutions": {
-        "AZURE_SUBSCRIPTION_ID_B64": "****",
-        "AZURE_TENANT_ID_B64": "****",
-        "AZURE_CLIENT_SECRET_B64": "****",
-        "AZURE_CLIENT_ID_B64": "****",
-        "AZURE_ENVIRONMENT": "AzurePublicCloud"
+        "AZURE_SUBSCRIPTION_ID": "****",
+        "AZURE_TENANT_ID": "****",
+        "AZURE_CLIENT_SECRET": "****",
+        "AZURE_CLIENT_ID": "****"
     },
     "worker-templates": {
         "flavors": {
@@ -100,7 +101,7 @@ N-series node type just for the `nvidia-gpu` flavor in `tilt-settings.json` to o
         "metadata": {
             "AZURE_CONTROL_PLANE_MACHINE_TYPE": "Standard_D2s_v3",
             "AZURE_LOCATION": "southcentralus",
-            "KUBERNETES_VERSION": "v1.19.4",
+            "KUBERNETES_VERSION": "v1.22.1",
             "WORKER_MACHINE_COUNT": "1"
         }
     }

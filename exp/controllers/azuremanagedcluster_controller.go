@@ -20,86 +20,103 @@ import (
 	"context"
 	"time"
 
-	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	"go.opentelemetry.io/otel/api/trace"
-	"go.opentelemetry.io/otel/label"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
+	infracontroller "sigs.k8s.io/cluster-api-provider-azure/controllers"
+	infrav1exp "sigs.k8s.io/cluster-api-provider-azure/exp/api/v1beta1"
+	"sigs.k8s.io/cluster-api-provider-azure/pkg/coalescing"
+	"sigs.k8s.io/cluster-api-provider-azure/util/reconciler"
+	"sigs.k8s.io/cluster-api-provider-azure/util/tele"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	infrav1exp "sigs.k8s.io/cluster-api-provider-azure/exp/api/v1alpha3"
-	"sigs.k8s.io/cluster-api-provider-azure/util/reconciler"
-	"sigs.k8s.io/cluster-api-provider-azure/util/tele"
 )
 
-// AzureManagedClusterReconciler reconciles a AzureManagedCluster object
+// AzureManagedClusterReconciler reconciles an AzureManagedCluster object.
 type AzureManagedClusterReconciler struct {
 	client.Client
-	Log              logr.Logger
 	Recorder         record.EventRecorder
 	ReconcileTimeout time.Duration
+	WatchFilterValue string
 }
 
 // SetupWithManager initializes this controller with a manager.
-func (r *AzureManagedClusterReconciler) SetupWithManager(mgr ctrl.Manager, options controller.Options) error {
-	log := r.Log.WithValues("controller", "AzureManagedCluster")
+func (amcr *AzureManagedClusterReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, options infracontroller.Options) error {
+	ctx, log, done := tele.StartSpanWithLogger(ctx,
+		"controllers.AzureManagedClusterReconciler.SetupWithManager",
+		tele.KVP("controller", "AzureManagedCluster"),
+	)
+	defer done()
+
+	var r reconcile.Reconciler = amcr
+	if options.Cache != nil {
+		r = coalescing.NewReconciler(amcr, options.Cache, log)
+	}
+
 	azManagedCluster := &infrav1exp.AzureManagedCluster{}
+	// create mapper to transform incoming AzureManagedControlPlanes into AzureManagedCluster requests
+	azureManagedControlPlaneMapper, err := AzureManagedControlPlaneToAzureManagedClusterMapper(ctx, amcr.Client, log)
+	if err != nil {
+		return errors.Wrap(err, "failed to create AzureManagedControlPlane to AzureManagedClusters mapper")
+	}
+
 	c, err := ctrl.NewControllerManagedBy(mgr).
-		WithOptions(options).
+		WithOptions(options.Options).
 		For(azManagedCluster).
-		WithEventFilter(predicates.ResourceNotPaused(log)). // don't queue reconcile if resource is paused
+		WithEventFilter(predicates.ResourceNotPausedAndHasFilterLabel(log, amcr.WatchFilterValue)).
+		// watch AzureManagedControlPlane resources
+		Watches(
+			&source.Kind{Type: &infrav1exp.AzureManagedControlPlane{}},
+			handler.EnqueueRequestsFromMapFunc(azureManagedControlPlaneMapper),
+		).
 		Build(r)
 	if err != nil {
-		return errors.Wrapf(err, "error creating controller")
+		return errors.Wrap(err, "error creating controller")
 	}
 
 	// Add a watch on clusterv1.Cluster object for unpause notifications.
 	if err = c.Watch(
 		&source.Kind{Type: &clusterv1.Cluster{}},
-		&handler.EnqueueRequestsFromMapFunc{
-			ToRequests: util.ClusterToInfrastructureMapFunc(infrav1exp.GroupVersion.WithKind("AzureManagedCluster")),
-		},
+		handler.EnqueueRequestsFromMapFunc(util.ClusterToInfrastructureMapFunc(infrav1exp.GroupVersion.WithKind("AzureManagedCluster"))),
 		predicates.ClusterUnpaused(log),
+		predicates.ResourceNotPausedAndHasFilterLabel(log, amcr.WatchFilterValue),
 	); err != nil {
-		return errors.Wrapf(err, "failed adding a watch for ready clusters")
+		return errors.Wrap(err, "failed adding a watch for ready clusters")
 	}
 	return nil
 }
 
-// +kubebuilder:rbac:groups=exp.infrastructure.cluster.x-k8s.io,resources=azuremanagedclusters,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=exp.infrastructure.cluster.x-k8s.io,resources=azuremanagedclusters/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=azuremanagedclusters,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=azuremanagedclusters/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=cluster.x-k8s.io,resources=clusters;clusters/status,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile idempotently gets, creates, and updates a managed cluster.
-func (r *AzureManagedClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, reterr error) {
-	ctx, cancel := context.WithTimeout(context.Background(), reconciler.DefaultedLoopTimeout(r.ReconcileTimeout))
+func (amcr *AzureManagedClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
+	ctx, cancel := context.WithTimeout(ctx, reconciler.DefaultedLoopTimeout(amcr.ReconcileTimeout))
 	defer cancel()
-	log := r.Log.WithValues("namespace", req.Namespace, "azureManagedCluster", req.Name)
 
-	ctx, span := tele.Tracer().Start(ctx, "controllers.AzureManagedClusterReconciler.Reconcile",
-		trace.WithAttributes(
-			label.String("namespace", req.Namespace),
-			label.String("name", req.Name),
-			label.String("kind", "AzureManagedCluster"),
-		))
-	defer span.End()
+	ctx, log, done := tele.StartSpanWithLogger(
+		ctx,
+		"controllers.AzureManagedClusterReconciler.Reconcile",
+		tele.KVP("namespace", req.Namespace),
+		tele.KVP("name", req.Name),
+		tele.KVP("kind", "AzureManagedCluster"),
+	)
+	defer done()
 
 	// Fetch the AzureManagedCluster instance
 	aksCluster := &infrav1exp.AzureManagedCluster{}
-	err := r.Get(ctx, req.NamespacedName, aksCluster)
+	err := amcr.Get(ctx, req.NamespacedName, aksCluster)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return reconcile.Result{}, nil
@@ -108,7 +125,7 @@ func (r *AzureManagedClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Resu
 	}
 
 	// Fetch the Cluster.
-	cluster, err := util.GetOwnerCluster(ctx, r.Client, aksCluster.ObjectMeta)
+	cluster, err := util.GetOwnerCluster(ctx, amcr.Client, aksCluster.ObjectMeta)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -131,20 +148,20 @@ func (r *AzureManagedClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Resu
 		return ctrl.Result{}, nil
 	}
 
-	if err := r.Get(ctx, controlPlaneRef, controlPlane); err != nil {
+	if err := amcr.Get(ctx, controlPlaneRef, controlPlane); err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "failed to get control plane ref")
 	}
 
 	log = log.WithValues("controlPlane", controlPlaneRef.Name)
 
-	patchhelper, err := patch.NewHelper(aksCluster, r.Client)
+	patchhelper, err := patch.NewHelper(aksCluster, amcr.Client)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "failed to init patch helper")
 	}
 
-	// Match whatever the control plane says. We should also enqueue
-	// requests from control plane to infra cluster to keep this accurate
-	aksCluster.Status.Ready = controlPlane.Status.Ready
+	// Infrastructure must be ready before control plane. We should also enqueue
+	// requests from control plane to infra cluster to keep control plane endpoint accurate.
+	aksCluster.Status.Ready = true
 	aksCluster.Spec.ControlPlaneEndpoint = controlPlane.Spec.ControlPlaneEndpoint
 
 	if err := patchhelper.Patch(ctx, aksCluster); err != nil {

@@ -21,13 +21,19 @@ import (
 )
 
 const (
-	// DefaultLoopTimeout is the default timeout for a reconcile loop (defaulted to the max ARM template duration)
+	// DefaultLoopTimeout is the default timeout for a reconcile loop (defaulted to the max ARM template duration).
 	DefaultLoopTimeout = 90 * time.Minute
-	// DefaultMappingTimeout is the default timeout for a controller request mapping func
+	// DefaultMappingTimeout is the default timeout for a controller request mapping func.
 	DefaultMappingTimeout = 60 * time.Second
+	// DefaultAzureServiceReconcileTimeout is the default timeout for an Azure service reconcile.
+	DefaultAzureServiceReconcileTimeout = 12 * time.Second
+	// DefaultAzureCallTimeout is the default timeout for an Azure request after which an Azure operation is considered long running.
+	DefaultAzureCallTimeout = 2 * time.Second
+	// DefaultReconcilerRequeue is the default value for the reconcile retry.
+	DefaultReconcilerRequeue = 15 * time.Second
 )
 
-// DefaultedLoopTimeout will default the timeout if it is zero valued
+// DefaultedLoopTimeout will default the timeout if it is zero-valued.
 func DefaultedLoopTimeout(timeout time.Duration) time.Duration {
 	if timeout <= 0 {
 		return DefaultLoopTimeout

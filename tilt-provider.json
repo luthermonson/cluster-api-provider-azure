@@ -7,10 +7,12 @@
       "go.mod",
       "go.sum",
       "api",
-      "cloud",
+      "azure",
       "controllers",
       "pkg",
       "exp"
-    ]
+    ],
+    "label": "CAPZ",
+    "manager_name": "capz-controller-manager"
   }
 }

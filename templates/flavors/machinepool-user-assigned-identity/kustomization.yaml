@@ -1,5 +1,0 @@
-namespace: default
-resources:
-  - ../machinepool
-patchesStrategicMerge:
-  - patches/user-assigned-identity.yaml

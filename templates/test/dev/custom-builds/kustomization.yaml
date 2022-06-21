@@ -1,0 +1,46 @@
+namespace: default
+resources:
+  - ../../../test/ci/prow
+  - ../../../addons/metrics-server/metrics-server-resource-set.yaml
+patchesStrategicMerge:
+  - patches/machine-deployment-pr-version.yaml
+  - patches/machine-deployment-pr-version-windows.yaml
+  - ../../../test/ci/patches/windows-containerd-patch.yaml
+  - ../../../test/ci/patches/machine-deployment-worker-counts.yaml
+  - ../../../test/ci/patches/metrics-server-enabled-cluster.yaml
+  - ../../../test/ci/patches/controller-manager-featuregates.yaml
+patches:
+- target:
+    group: bootstrap.cluster.x-k8s.io
+    version: v1beta1
+    kind: KubeadmConfigTemplate
+    name: .*-md-0
+    namespace: default
+  path: patches/kubeadm-bootstrap.yaml
+- target:
+    group: controlplane.cluster.x-k8s.io
+    version: v1beta1
+    kind: KubeadmControlPlane
+    name: .*-control-plane
+  path: patches/kubeadm-controlplane-bootstrap.yaml
+- target:
+    group: bootstrap.cluster.x-k8s.io
+    version: v1beta1
+    kind: KubeadmConfigTemplate
+    name: .*-md-win
+    namespace: default
+  path: ../../ci/prow-ci-version/patches/kubeadm-bootstrap-windows-k8s-ci-binaries.yaml
+configMapGenerator:
+  - name: cni-${CLUSTER_NAME}-calico
+    behavior: merge
+    files:
+      - kube-proxy-patch=../../../test/ci/patches/windows-kubeproxy-ci.yaml
+  - name: metrics-server-${CLUSTER_NAME}
+    files:
+      - metrics-server=../../../addons/metrics-server/metrics-server.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    type: generated
+  annotations:
+    note: generated

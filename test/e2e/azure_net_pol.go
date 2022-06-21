@@ -1,3 +1,4 @@
+//go:build e2e
 // +build e2e
 
 /*
@@ -43,7 +44,7 @@ const (
 	PolicyDir = "workloads/policies"
 )
 
-// AzureLBSpecInput is the input for AzureLBSpec.
+// AzureNetPolSpecInput is the input for AzureNetPolSpec.
 type AzureNetPolSpecInput struct {
 	BootstrapClusterProxy framework.ClusterProxy
 	Namespace             *corev1.Namespace
@@ -65,23 +66,25 @@ func AzureNetPolSpec(ctx context.Context, inputGetter func() AzureNetPolSpecInpu
 	Expect(input.BootstrapClusterProxy).NotTo(BeNil(), "Invalid argument. input.BootstrapClusterProxy can't be nil when calling %s spec", specName)
 	Expect(input.Namespace).NotTo(BeNil(), "Invalid argument. input.Namespace can't be nil when calling %s spec", specName)
 	By("creating a Kubernetes client to the workload cluster")
-	clusterProxy = input.BootstrapClusterProxy.GetWorkloadCluster(context.TODO(), input.Namespace.Name, input.ClusterName)
+	clusterProxy = input.BootstrapClusterProxy.GetWorkloadCluster(ctx, input.Namespace.Name, input.ClusterName)
 	Expect(clusterProxy).NotTo(BeNil())
 	clientset = clusterProxy.GetClientSet()
 	Expect(clientset).NotTo(BeNil())
 	testTmpDir, err := ioutil.TempDir("/tmp", "azure-test")
 	defer os.RemoveAll(testTmpDir)
 	Expect(err).NotTo(HaveOccurred())
-	config = createRestConfig(testTmpDir, input.Namespace.Name, input.ClusterName)
+	config = createRestConfig(ctx, testTmpDir, input.Namespace.Name, input.ClusterName)
 	Expect(config).NotTo(BeNil())
 
 	nsDev, nsProd := "development", "production"
 	By("Creating development namespace")
-	namespaceDev, err := e2e_namespace.CreateNamespaceDeleteIfExist(clientset, nsDev, map[string]string{"purpose": "development"})
+	Log("starting to create dev deployment namespace")
+	namespaceDev, err := e2e_namespace.CreateNamespaceDeleteIfExist(ctx, clientset, nsDev, map[string]string{"purpose": "development"})
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Creating production namespace")
-	namespaceProd, err := e2e_namespace.CreateNamespaceDeleteIfExist(clientset, nsProd, map[string]string{"purpose": "production"})
+	Log("starting to create prod deployment namespace")
+	namespaceProd, err := e2e_namespace.CreateNamespaceDeleteIfExist(ctx, clientset, nsProd, map[string]string{"purpose": "production"})
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Creating frontendProd, backend and network-policy pod deployments")
@@ -93,32 +96,36 @@ func AzureNetPolSpec(ctx context.Context, inputGetter func() AzureNetPolSpecInpu
 
 	// Front end Prod
 	frontendProdDeploymentName := fmt.Sprintf("frontend-prod-%v", randInt)
-	frontEndProd := deploymentBuilder.CreateDeployment("library/nginx:latest", frontendProdDeploymentName, namespaceProd.GetName())
+	Log("starting to create frontend-prod deployments")
+	frontEndProd := deploymentBuilder.Create("library/nginx:1.21.1", frontendProdDeploymentName, namespaceProd.GetName())
 	frontEndProd.AddLabels(frontendLabels)
-	frontendProdDeployment, err := frontEndProd.Deploy(clientset)
+	frontendProdDeployment, err := frontEndProd.Deploy(ctx, clientset)
 	Expect(err).NotTo(HaveOccurred())
 
 	// Front end Dev
 	frontendDevDeploymentName := fmt.Sprintf("frontend-dev-%v", randInt+100000)
-	frontEndDev := deploymentBuilder.CreateDeployment("library/nginx:latest", frontendDevDeploymentName, namespaceDev.GetName())
+	Log("starting to create frontend-dev deployments")
+	frontEndDev := deploymentBuilder.Create("library/nginx:1.21.1", frontendDevDeploymentName, namespaceDev.GetName())
 	frontEndDev.AddLabels(frontendLabels)
-	frontendDevDeployment, err := frontEndDev.Deploy(clientset)
+	frontendDevDeployment, err := frontEndDev.Deploy(ctx, clientset)
 	Expect(err).NotTo(HaveOccurred())
 
 	// Backend
 	backendDeploymentName := fmt.Sprintf("backend-%v", randInt+200000)
 	backendLabels := map[string]string{"app": "webapp", "role": "backend"}
-	backendDev := deploymentBuilder.CreateDeployment("library/nginx:latest", backendDeploymentName, namespaceDev.GetName())
+	Log("starting to create backend deployments")
+	backendDev := deploymentBuilder.Create("library/nginx:1.21.1", backendDeploymentName, namespaceDev.GetName())
 	backendDev.AddLabels(backendLabels)
-	backendDeployment, err := backendDev.Deploy(clientset)
+	backendDeployment, err := backendDev.Deploy(ctx, clientset)
 	Expect(err).NotTo(HaveOccurred())
 
 	// Network policy
 	nwpolicyDeploymentName := fmt.Sprintf("network-policy-%v", randInt+300000)
 	nwpolicyLabels := map[string]string{"app": "webapp", "role": "any"}
-	nwpolicy := deploymentBuilder.CreateDeployment("library/nginx:latest", nwpolicyDeploymentName, namespaceDev.GetName())
+	Log("starting to create network-policy deployments")
+	nwpolicy := deploymentBuilder.Create("library/nginx:1.21.1", nwpolicyDeploymentName, namespaceDev.GetName())
 	nwpolicy.AddLabels(nwpolicyLabels)
-	nwpolicyDeployment, err := nwpolicy.Deploy(clientset)
+	nwpolicyDeployment, err := nwpolicy.Deploy(ctx, clientset)
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Ensure there is a running frontend-prod pod")
@@ -126,46 +133,46 @@ func AzureNetPolSpec(ctx context.Context, inputGetter func() AzureNetPolSpecInpu
 		Getter:     deploymentsClientAdapter{client: clientset.AppsV1().Deployments(namespaceProd.GetName())},
 		Deployment: frontendProdDeployment,
 	}
-	framework.WaitForDeploymentsAvailable(context.TODO(), frontendProdDeploymentInput, e2eConfig.GetIntervals(specName, "wait-deployment")...)
+	framework.WaitForDeploymentsAvailable(ctx, frontendProdDeploymentInput, e2eConfig.GetIntervals(specName, "wait-deployment")...)
 
 	By("Ensure there is a running frontend-dev pod")
 	frontendDevDeploymentInput := framework.WaitForDeploymentsAvailableInput{
 		Getter:     deploymentsClientAdapter{client: clientset.AppsV1().Deployments(namespaceDev.GetName())},
 		Deployment: frontendDevDeployment,
 	}
-	framework.WaitForDeploymentsAvailable(context.TODO(), frontendDevDeploymentInput, e2eConfig.GetIntervals(specName, "wait-deployment")...)
+	framework.WaitForDeploymentsAvailable(ctx, frontendDevDeploymentInput, e2eConfig.GetIntervals(specName, "wait-deployment")...)
 
 	By("Ensure there is a running backend pod")
 	backendDeploymentInput := framework.WaitForDeploymentsAvailableInput{
 		Getter:     deploymentsClientAdapter{client: clientset.AppsV1().Deployments(namespaceDev.GetName())},
 		Deployment: backendDeployment,
 	}
-	framework.WaitForDeploymentsAvailable(context.TODO(), backendDeploymentInput, e2eConfig.GetIntervals(specName, "wait-deployment")...)
+	framework.WaitForDeploymentsAvailable(ctx, backendDeploymentInput, e2eConfig.GetIntervals(specName, "wait-deployment")...)
 
 	By("Ensure there is a running network-policy pod")
 	nwpolicyDeploymentInput := framework.WaitForDeploymentsAvailableInput{
 		Getter:     deploymentsClientAdapter{client: clientset.AppsV1().Deployments(namespaceDev.GetName())},
 		Deployment: nwpolicyDeployment,
 	}
-	framework.WaitForDeploymentsAvailable(context.TODO(), nwpolicyDeploymentInput, e2eConfig.GetIntervals(specName, "wait-deployment")...)
+	framework.WaitForDeploymentsAvailable(ctx, nwpolicyDeploymentInput, e2eConfig.GetIntervals(specName, "wait-deployment")...)
 
 	By("Ensuring we have outbound internet access from the frontend-prod pods")
-	frontendProdPods, err := frontEndProd.GetPodsFromDeployment(clientset)
+	frontendProdPods, err := frontEndProd.GetPodsFromDeployment(ctx, clientset)
 	Expect(err).NotTo(HaveOccurred())
 	e2e_networkpolicy.EnsureOutboundInternetAccess(clientset, config, frontendProdPods)
 
 	By("Ensuring we have outbound internet access from the frontend-dev pods")
-	frontendDevPods, err := frontEndDev.GetPodsFromDeployment(clientset)
+	frontendDevPods, err := frontEndDev.GetPodsFromDeployment(ctx, clientset)
 	Expect(err).NotTo(HaveOccurred())
 	e2e_networkpolicy.EnsureOutboundInternetAccess(clientset, config, frontendDevPods)
 
 	By("Ensuring we have outbound internet access from the backend pods")
-	backendPods, err := backendDev.GetPodsFromDeployment(clientset)
+	backendPods, err := backendDev.GetPodsFromDeployment(ctx, clientset)
 	Expect(err).NotTo(HaveOccurred())
 	e2e_networkpolicy.EnsureOutboundInternetAccess(clientset, config, backendPods)
 
 	By("Ensuring we have outbound internet access from the network-policy pods")
-	nwpolicyPods, err := nwpolicy.GetPodsFromDeployment(clientset)
+	nwpolicyPods, err := nwpolicy.GetPodsFromDeployment(ctx, clientset)
 	Expect(err).NotTo(HaveOccurred())
 	e2e_networkpolicy.EnsureOutboundInternetAccess(clientset, config, nwpolicyPods)
 
@@ -177,28 +184,33 @@ func AzureNetPolSpec(ctx context.Context, inputGetter func() AzureNetPolSpecInpu
 
 	By("Applying a network policy to deny ingress access to app: webapp, role: backend pods in development namespace")
 	nwpolicyName, namespaceE2E, nwpolicyFileName := "backend-deny-ingress", nsDev, "backend-policy-deny-ingress.yaml"
-	e2e_networkpolicy.ApplyNetworkPolicy(clientset, nwpolicyName, namespaceE2E, nwpolicyFileName, PolicyDir)
+	Logf("starting to applying a network policy %s/%s to deny access to app: webapp, role: backend pods in development namespace", namespaceE2E, nwpolicyName)
+	e2e_networkpolicy.ApplyNetworkPolicy(ctx, clientset, nwpolicyName, namespaceE2E, nwpolicyFileName, PolicyDir)
 
 	By("Ensuring we no longer have ingress access from the network-policy pods to backend pods")
 	e2e_networkpolicy.EnsureConnectivityResultBetweenPods(clientset, config, nwpolicyPods, backendPods, false)
 
 	By("Cleaning up after ourselves")
-	e2e_networkpolicy.DeleteNetworkPolicy(clientset, nwpolicyName, namespaceE2E)
+	Logf("starting to cleaning up network policy %s/%s after ourselves", namespaceE2E, nwpolicyName)
+	e2e_networkpolicy.DeleteNetworkPolicy(ctx, clientset, nwpolicyName, namespaceE2E)
 
 	By("Applying a network policy to deny egress access in development namespace")
 	nwpolicyName, namespaceE2E, nwpolicyFileName = "backend-deny-egress", nsDev, "backend-policy-deny-egress.yaml"
-	e2e_networkpolicy.ApplyNetworkPolicy(clientset, nwpolicyName, nsDev, nwpolicyFileName, PolicyDir)
+	Logf("starting to applying a network policy %s/%s to deny egress access in development namespace", nsDev, nwpolicyName)
+	e2e_networkpolicy.ApplyNetworkPolicy(ctx, clientset, nwpolicyName, nsDev, nwpolicyFileName, PolicyDir)
 
 	By("Ensuring we no longer have egress access from the network-policy pods to backend pods")
 	e2e_networkpolicy.EnsureConnectivityResultBetweenPods(clientset, config, nwpolicyPods, backendPods, false)
 	e2e_networkpolicy.EnsureConnectivityResultBetweenPods(clientset, config, frontendDevPods, backendPods, false)
 
 	By("Cleaning up after ourselves")
-	e2e_networkpolicy.DeleteNetworkPolicy(clientset, nwpolicyName, namespaceE2E)
+	Logf("starting to cleaning up network policy %s/%s after ourselves", namespaceE2E, nwpolicyName)
+	e2e_networkpolicy.DeleteNetworkPolicy(ctx, clientset, nwpolicyName, namespaceE2E)
 
 	By("Applying a network policy to allow egress access to app: webapp, role: frontend pods in any namespace from pods with app: webapp, role: backend labels in development namespace")
 	nwpolicyName, namespaceE2E, nwpolicyFileName = "backend-allow-egress-pod-label", nsDev, "backend-policy-allow-egress-pod-label.yaml"
-	e2e_networkpolicy.ApplyNetworkPolicy(clientset, nwpolicyName, namespaceE2E, nwpolicyFileName, PolicyDir)
+	Logf("starting to applying a network policy %s/%s to allow egress access to app: webapp, role: frontend pods in any namespace from pods with app: webapp, role: backend labels in development namespace", namespaceE2E, nwpolicyName)
+	e2e_networkpolicy.ApplyNetworkPolicy(ctx, clientset, nwpolicyName, namespaceE2E, nwpolicyFileName, PolicyDir)
 
 	By("Ensuring we have egress access from pods with matching labels")
 	e2e_networkpolicy.EnsureConnectivityResultBetweenPods(clientset, config, backendPods, frontendDevPods, true)
@@ -208,11 +220,13 @@ func AzureNetPolSpec(ctx context.Context, inputGetter func() AzureNetPolSpecInpu
 	e2e_networkpolicy.EnsureConnectivityResultBetweenPods(clientset, config, backendPods, nwpolicyPods, false)
 
 	By("Cleaning up after ourselves")
-	e2e_networkpolicy.DeleteNetworkPolicy(clientset, nwpolicyName, namespaceE2E)
+	Logf("starting to cleaning up network policy %s/%s after ourselves", namespaceE2E, nwpolicyName)
+	e2e_networkpolicy.DeleteNetworkPolicy(ctx, clientset, nwpolicyName, namespaceE2E)
 
 	By("Applying a network policy to allow egress access to app: webapp, role: frontend pods from pods with app: webapp, role: backend labels in same development namespace")
 	nwpolicyName, namespaceE2E, nwpolicyFileName = "backend-allow-egress-pod-namespace-label", nsDev, "backend-policy-allow-egress-pod-namespace-label.yaml"
-	e2e_networkpolicy.ApplyNetworkPolicy(clientset, nwpolicyName, namespaceE2E, nwpolicyFileName, PolicyDir)
+	Logf("starting to applying a network policy %s/%s to allow egress access to app: webapp, role: frontend pods from pods with app: webapp, role: backend labels in same development namespace", namespaceE2E, nwpolicyName)
+	e2e_networkpolicy.ApplyNetworkPolicy(ctx, clientset, nwpolicyName, namespaceE2E, nwpolicyFileName, PolicyDir)
 
 	By("Ensuring we have egress access from pods with matching labels")
 	e2e_networkpolicy.EnsureConnectivityResultBetweenPods(clientset, config, backendPods, frontendDevPods, true)
@@ -222,11 +236,13 @@ func AzureNetPolSpec(ctx context.Context, inputGetter func() AzureNetPolSpecInpu
 	e2e_networkpolicy.EnsureConnectivityResultBetweenPods(clientset, config, backendPods, nwpolicyPods, false)
 
 	By("Cleaning up after ourselves")
-	e2e_networkpolicy.DeleteNetworkPolicy(clientset, nwpolicyName, namespaceE2E)
+	Logf("starting to cleaning up network policy %s/%s after ourselves", namespaceE2E, nwpolicyName)
+	e2e_networkpolicy.DeleteNetworkPolicy(ctx, clientset, nwpolicyName, namespaceE2E)
 
 	By("Applying a network policy to only allow ingress access to app: webapp, role: backend pods in development namespace from pods in any namespace with the same labels")
 	nwpolicyName, namespaceE2E, nwpolicyFileName = "backend-allow-ingress-pod-label", nsDev, "backend-policy-allow-ingress-pod-label.yaml"
-	e2e_networkpolicy.ApplyNetworkPolicy(clientset, nwpolicyName, namespaceE2E, nwpolicyFileName, PolicyDir)
+	Logf("starting to applying a network policy %s/%s to only allow ingress access to app: webapp, role: backend pods in development namespace from pods in any namespace with the same labels", namespaceE2E, nwpolicyName)
+	e2e_networkpolicy.ApplyNetworkPolicy(ctx, clientset, nwpolicyName, namespaceE2E, nwpolicyFileName, PolicyDir)
 
 	By("Ensuring we have ingress access from pods with matching labels")
 	e2e_networkpolicy.EnsureConnectivityResultBetweenPods(clientset, config, backendPods, backendPods, true)
@@ -235,11 +251,13 @@ func AzureNetPolSpec(ctx context.Context, inputGetter func() AzureNetPolSpecInpu
 	e2e_networkpolicy.EnsureConnectivityResultBetweenPods(clientset, config, nwpolicyPods, backendPods, false)
 
 	By("Cleaning up after ourselves")
-	e2e_networkpolicy.DeleteNetworkPolicy(clientset, nwpolicyName, namespaceE2E)
+	Logf("starting to cleaning up network policy %s/%s after ourselves", namespaceE2E, nwpolicyName)
+	e2e_networkpolicy.DeleteNetworkPolicy(ctx, clientset, nwpolicyName, namespaceE2E)
 
 	By("Applying a network policy to only allow ingress access to app: webapp role:backends in development namespace from pods with label app:webapp, role: frontendProd within namespace with label purpose: development")
 	nwpolicyName, namespaceE2E, nwpolicyFileName = "backend-policy-allow-ingress-pod-namespace-label", nsDev, "backend-policy-allow-ingress-pod-namespace-label.yaml"
-	e2e_networkpolicy.ApplyNetworkPolicy(clientset, nwpolicyName, namespaceE2E, nwpolicyFileName, PolicyDir)
+	Logf("starting to applying a network policy %s/%s to only allow ingress access to app: webapp role:backends in development namespace from pods with label app:webapp, role: frontendProd within namespace with label purpose: development", namespaceE2E, nwpolicyName)
+	e2e_networkpolicy.ApplyNetworkPolicy(ctx, clientset, nwpolicyName, namespaceE2E, nwpolicyFileName, PolicyDir)
 
 	By("Ensuring we don't have ingress access from role:frontend pods in production namespace")
 	e2e_networkpolicy.EnsureConnectivityResultBetweenPods(clientset, config, frontendProdPods, backendPods, false)

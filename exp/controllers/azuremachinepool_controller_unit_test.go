@@ -17,47 +17,45 @@ limitations under the License.
 package controllers
 
 import (
-	"github.com/Azure/go-autorest/autorest/to"
-	"github.com/golang/mock/gomock"
-	"sigs.k8s.io/cluster-api-provider-azure/cloud/mocks"
-	"sigs.k8s.io/cluster-api-provider-azure/cloud/scope"
 	"testing"
 
+	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	infrav1 "sigs.k8s.io/cluster-api-provider-azure/api/v1alpha3"
-	infrav1exp "sigs.k8s.io/cluster-api-provider-azure/exp/api/v1alpha3"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
-	clusterv1exp "sigs.k8s.io/cluster-api/exp/api/v1alpha3"
+	infrav1 "sigs.k8s.io/cluster-api-provider-azure/api/v1beta1"
+	"sigs.k8s.io/cluster-api-provider-azure/azure/mock_azure"
+	"sigs.k8s.io/cluster-api-provider-azure/azure/scope"
+	infrav1exp "sigs.k8s.io/cluster-api-provider-azure/exp/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1exp "sigs.k8s.io/cluster-api/exp/api/v1beta1"
 )
 
 func Test_newAzureMachinePoolService(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	cluster := newAzureCluster("foo")
+	cluster := newAzureCluster("fakeCluster")
 	cluster.Spec.ResourceGroup = "resourceGroup"
-	cluster.Spec.Location = "test-location"
+	cluster.Spec.Location = "test-location"
 	cluster.Spec.ResourceGroup = "my-rg"
 	cluster.Spec.SubscriptionID = "123"
 	cluster.Spec.NetworkSpec = infrav1.NetworkSpec{
 		Vnet: infrav1.VnetSpec{Name: "my-vnet", ResourceGroup: "my-rg"},
 	}
 
-	cs := &scope.ClusterScope{
-		AzureCluster: cluster,
-	}
-
-	clusterMock := mocks.NewMockClusterScoper(mockCtrl)
+	clusterMock := mock_azure.NewMockClusterScoper(mockCtrl)
 	clusterMock.EXPECT().SubscriptionID().AnyTimes()
 	clusterMock.EXPECT().BaseURI().AnyTimes()
 	clusterMock.EXPECT().Authorizer().AnyTimes()
+	clusterMock.EXPECT().Location().Return(cluster.Spec.Location)
+	clusterMock.EXPECT().HashKey().Return("fakeCluster")
 
 	mps := &scope.MachinePoolScope{
 		ClusterScoper: clusterMock,
-		MachinePool:   newMachinePool("foo", "poolName"),
+		MachinePool:   newMachinePool("fakeCluster", "poolName"),
 		AzureMachinePool: &infrav1exp.AzureMachinePool{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "poolName",
@@ -65,10 +63,11 @@ func Test_newAzureMachinePoolService(t *testing.T) {
 		},
 	}
 
-	subject := newAzureMachinePoolService(mps, cs)
+	subject, err := newAzureMachinePoolService(mps)
 	g := NewWithT(t)
+	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(subject).NotTo(BeNil())
-	g.Expect(subject.virtualMachinesScaleSetSvc).NotTo(BeNil())
+	g.Expect(subject.services).NotTo(BeEmpty())
 	g.Expect(subject.skuCache).NotTo(BeNil())
 }
 
@@ -80,7 +79,7 @@ func newScheme(g *GomegaWithT) *runtime.Scheme {
 		infrav1.AddToScheme,
 		infrav1exp.AddToScheme,
 	} {
-		g.Expect(f(scheme)).ToNot(HaveOccurred())
+		g.Expect(f(scheme)).To(Succeed())
 	}
 	return scheme
 }
@@ -114,8 +113,19 @@ func newAzureMachinePool(clusterName, poolName string) *infrav1exp.AzureMachineP
 
 func newMachinePoolWithInfrastructureRef(clusterName, poolName string) *clusterv1exp.MachinePool {
 	m := newMachinePool(clusterName, poolName)
-	m.Spec.Template.Spec.InfrastructureRef = v1.ObjectReference{
+	m.Spec.Template.Spec.InfrastructureRef = corev1.ObjectReference{
 		Kind:       "AzureMachinePool",
+		Namespace:  m.Namespace,
+		Name:       "azure" + poolName,
+		APIVersion: infrav1exp.GroupVersion.String(),
+	}
+	return m
+}
+
+func newManagedMachinePoolWithInfrastructureRef(clusterName, poolName string) *clusterv1exp.MachinePool {
+	m := newMachinePool(clusterName, poolName)
+	m.Spec.Template.Spec.InfrastructureRef = corev1.ObjectReference{
+		Kind:       "AzureManagedMachinePool",
 		Namespace:  m.Namespace,
 		Name:       "azure" + poolName,
 		APIVersion: infrav1exp.GroupVersion.String(),

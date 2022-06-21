@@ -1,4 +1,4 @@
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AzureCluster
 metadata:
   name: ${CLUSTER_NAME}
@@ -7,4 +7,7 @@ spec:
     apiServerLB:
       name: ${CLUSTER_NAME}-internal-lb
       type: Internal
-
+    nodeOutboundLB:
+      frontendIPsCount: 1
+    controlPlaneOutboundLB:
+      frontendIPsCount: 1

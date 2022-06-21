@@ -17,18 +17,19 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
+	"os"
 	"testing"
 
+	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/klog/klogr"
-
-	infrav1 "sigs.k8s.io/cluster-api-provider-azure/api/v1alpha3"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
+	infrav1 "sigs.k8s.io/cluster-api-provider-azure/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -45,7 +46,7 @@ func TestAzureJSONTemplateReconciler(t *testing.T) {
 		},
 		Spec: clusterv1.ClusterSpec{
 			InfrastructureRef: &corev1.ObjectReference{
-				APIVersion: "infrastructure.cluster.x-k8s.io/v1alpha3",
+				APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
 				Kind:       "AzureCluster",
 				Name:       "my-azure-cluster",
 			},
@@ -57,14 +58,16 @@ func TestAzureJSONTemplateReconciler(t *testing.T) {
 			Name: "my-azure-cluster",
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: "cluster.x-k8s.io/v1alpha3",
+					APIVersion: "cluster.x-k8s.io/v1beta1",
 					Kind:       "Cluster",
 					Name:       "my-cluster",
 				},
 			},
 		},
 		Spec: infrav1.AzureClusterSpec{
-			SubscriptionID: "123",
+			AzureClusterClassSpec: infrav1.AzureClusterClassSpec{
+				SubscriptionID: "123",
+			},
 		},
 	}
 
@@ -73,7 +76,7 @@ func TestAzureJSONTemplateReconciler(t *testing.T) {
 			Name: "my-json-template",
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: "cluster.x-k8s.io/v1alpha3",
+					APIVersion: "cluster.x-k8s.io/v1beta1",
 					Kind:       "Cluster",
 					Name:       "my-cluster",
 				},
@@ -103,17 +106,20 @@ func TestAzureJSONTemplateReconciler(t *testing.T) {
 		},
 	}
 
+	os.Setenv(auth.ClientID, "fooClient")
+	os.Setenv(auth.ClientSecret, "fooSecret")
+	os.Setenv(auth.TenantID, "fooTenant")
+
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			client := fake.NewFakeClientWithScheme(scheme, tc.objects...)
+			client := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(tc.objects...).Build()
 
 			reconciler := &AzureJSONTemplateReconciler{
 				Client:   client,
-				Log:      klogr.New(),
 				Recorder: record.NewFakeRecorder(128),
 			}
 
-			_, err := reconciler.Reconcile(ctrl.Request{
+			_, err := reconciler.Reconcile(context.Background(), ctrl.Request{
 				NamespacedName: types.NamespacedName{
 					Namespace: "",
 					Name:      "my-json-template",

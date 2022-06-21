@@ -1,3 +1,4 @@
+//go:build e2e
 // +build e2e
 
 /*
@@ -31,60 +32,21 @@ import (
 	"github.com/onsi/ginkgo/config"
 	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/runtime"
-	infrav1 "sigs.k8s.io/cluster-api-provider-azure/api/v1alpha3"
 	capi_e2e "sigs.k8s.io/cluster-api/test/e2e"
 	"sigs.k8s.io/cluster-api/test/framework"
 	"sigs.k8s.io/cluster-api/test/framework/bootstrap"
 	"sigs.k8s.io/cluster-api/test/framework/clusterctl"
 )
 
-// Test suite flags
-var (
-	// configPath is the path to the e2e config file.
-	configPath string
-
-	// useExistingCluster instructs the test to use the current cluster instead of creating a new one (default discovery rules apply).
-	useExistingCluster bool
-
-	// artifactFolder is the folder to store e2e test artifacts.
-	artifactFolder string
-
-	// skipCleanup prevents cleanup of test resources e.g. for debug purposes.
-	skipCleanup bool
-)
-
-// Test suite global vars
-var (
-	// e2eConfig to be used for this test, read from configPath.
-	e2eConfig *clusterctl.E2EConfig
-
-	// clusterctlConfigPath to be used for this test, created by generating a clusterctl local repository
-	// with the providers specified in the configPath.
-	clusterctlConfigPath string
-
-	// bootstrapClusterProvider manages provisioning of the the bootstrap cluster to be used for the e2e tests.
-	// Please note that provisioning will be skipped if e2e.use-existing-cluster is provided.
-	bootstrapClusterProvider bootstrap.ClusterProvider
-
-	// bootstrapClusterProxy allows to interact with the bootstrap cluster to be used for the e2e tests.
-	bootstrapClusterProxy framework.ClusterProxy
-
-	// kubetestConfigFilePath is the path to the kubetest configuration file
-	kubetestConfigFilePath string
-
-	// useCIArtifacts specifies whether or not to use the latest build from the main branch of the Kubernetes repository
-	useCIArtifacts bool
-)
-
 func init() {
 	flag.StringVar(&configPath, "e2e.config", "", "path to the e2e config file")
 	flag.StringVar(&artifactFolder, "e2e.artifacts-folder", "", "folder where e2e test artifact should be stored")
-	flag.BoolVar(&useCIArtifacts, "kubetest.use-ci-artifacts", false, "use the latest build from the main branch of the Kubernetes repository")
+	flag.BoolVar(&useCIArtifacts, "kubetest.use-ci-artifacts", false, "use the latest build from the main branch of the Kubernetes repository. Set KUBERNETES_VERSION environment variable to latest-1.xx to use the build from 1.xx release branch.")
+	flag.BoolVar(&usePRArtifacts, "kubetest.use-pr-artifacts", false, "use the build from a PR of the Kubernetes repository")
 	flag.BoolVar(&skipCleanup, "e2e.skip-resource-cleanup", false, "if true, the resource cleanup after tests will be skipped")
 	flag.BoolVar(&useExistingCluster, "e2e.use-existing-cluster", false, "if true, the test uses the current cluster instead of creating a new one (default discovery rules apply)")
 	flag.StringVar(&kubetestConfigFilePath, "kubetest.config-file", "", "path to the kubetest configuration file")
-
+	flag.StringVar(&kubetestRepoListPath, "kubetest.repo-list-path", "", "path to the kubetest repo-list path")
 }
 
 func TestE2E(t *testing.T) {
@@ -102,9 +64,6 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	Expect(configPath).To(BeAnExistingFile(), "Invalid test suite argument. e2e.config should be an existing file.")
 	Expect(os.MkdirAll(artifactFolder, 0755)).To(Succeed(), "Invalid test suite argument. Can't create e2e.artifacts-folder %q", artifactFolder)
 
-	By("Initializing a runtime.Scheme with all the GVK relevant for this test")
-	scheme := initScheme()
-
 	Byf("Loading the e2e test configuration from %q", configPath)
 	e2eConfig = loadE2EConfig(configPath)
 
@@ -112,7 +71,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	clusterctlConfigPath = createClusterctlLocalRepository(e2eConfig, filepath.Join(artifactFolder, "repository"))
 
 	By("Setting up the bootstrap cluster")
-	bootstrapClusterProvider, bootstrapClusterProxy = setupBootstrapCluster(e2eConfig, scheme, useExistingCluster)
+	bootstrapClusterProvider, bootstrapClusterProxy = setupBootstrapCluster(e2eConfig, useExistingCluster)
 
 	By("Initializing the bootstrap cluster")
 	initBootstrapCluster(bootstrapClusterProxy, e2eConfig, clusterctlConfigPath, artifactFolder)
@@ -137,8 +96,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	kubeconfigPath := parts[3]
 
 	e2eConfig = loadE2EConfig(configPath)
-	bootstrapClusterProxy = framework.NewClusterProxy("bootstrap", kubeconfigPath, initScheme(),
-		framework.WithMachineLogCollector(AzureLogCollector{}))
+	bootstrapClusterProxy = NewAzureClusterProxy("bootstrap", kubeconfigPath, framework.WithMachineLogCollector(AzureLogCollector{}))
 })
 
 // Using a SynchronizedAfterSuite for controlling how to delete resources shared across ParallelNodes (~ginkgo threads).
@@ -155,16 +113,11 @@ var _ = SynchronizedAfterSuite(func() {
 	}
 })
 
-func initScheme() *runtime.Scheme {
-	scheme := runtime.NewScheme()
-	framework.TryAddDefaultSchemes(scheme)
-	Expect(infrav1.AddToScheme(scheme)).To(Succeed())
-	return scheme
-}
-
 func loadE2EConfig(configPath string) *clusterctl.E2EConfig {
 	config := clusterctl.LoadE2EConfig(context.TODO(), clusterctl.LoadE2EConfigInput{ConfigPath: configPath})
-	Expect(config).ToNot(BeNil(), "Failed to load E2E config from %s", configPath)
+	Expect(config).NotTo(BeNil(), "Failed to load E2E config from %s", configPath)
+
+	resolveKubernetesVersions(config)
 
 	return config
 }
@@ -181,18 +134,12 @@ func createClusterctlLocalRepository(config *clusterctl.E2EConfig, repositoryFol
 	Expect(cniPath).To(BeAnExistingFile(), "The %s variable should resolve to an existing file", capi_e2e.CNIPath)
 	createRepositoryInput.RegisterClusterResourceSetConfigMapTransformation(cniPath, capi_e2e.CNIResources)
 
-	// Do the same for CNI_RESOURCES_IPV6.
-	Expect(config.Variables).To(HaveKey(CNIPathIPv6), "Missing %s variable in the config", CNIPathIPv6)
-	cniPathIPv6 := config.GetVariable(CNIPathIPv6)
-	Expect(cniPathIPv6).To(BeAnExistingFile(), "The %s variable should resolve to an existing file", CNIPathIPv6)
-	createRepositoryInput.RegisterClusterResourceSetConfigMapTransformation(cniPathIPv6, CNIResourcesIPv6)
-
 	clusterctlConfig := clusterctl.CreateRepository(context.TODO(), createRepositoryInput)
 	Expect(clusterctlConfig).To(BeAnExistingFile(), "The clusterctl config file does not exists in the local repository %s", repositoryFolder)
 	return clusterctlConfig
 }
 
-func setupBootstrapCluster(config *clusterctl.E2EConfig, scheme *runtime.Scheme, useExistingCluster bool) (bootstrap.ClusterProvider, framework.ClusterProxy) {
+func setupBootstrapCluster(config *clusterctl.E2EConfig, useExistingCluster bool) (bootstrap.ClusterProvider, framework.ClusterProxy) {
 	var clusterProvider bootstrap.ClusterProvider
 	kubeconfigPath := ""
 	if !useExistingCluster {
@@ -201,14 +148,14 @@ func setupBootstrapCluster(config *clusterctl.E2EConfig, scheme *runtime.Scheme,
 			RequiresDockerSock: config.HasDockerProvider(),
 			Images:             config.Images,
 		})
-		Expect(clusterProvider).ToNot(BeNil(), "Failed to create a bootstrap cluster")
+		Expect(clusterProvider).NotTo(BeNil(), "Failed to create a bootstrap cluster")
 
 		kubeconfigPath = clusterProvider.GetKubeconfigPath()
 		Expect(kubeconfigPath).To(BeAnExistingFile(), "Failed to get the kubeconfig file for the bootstrap cluster")
 	}
 
-	clusterProxy := framework.NewClusterProxy("bootstrap", kubeconfigPath, scheme)
-	Expect(clusterProxy).ToNot(BeNil(), "Failed to get a bootstrap cluster proxy")
+	clusterProxy := NewAzureClusterProxy("bootstrap", kubeconfigPath)
+	Expect(clusterProxy).NotTo(BeNil(), "Failed to get a bootstrap cluster proxy")
 
 	return clusterProvider, clusterProxy
 }

@@ -1,4 +1,4 @@
-apiVersion: cluster.x-k8s.io/v1alpha3
+apiVersion: cluster.x-k8s.io/v1beta1
 kind: Cluster
 metadata:
   name: ${CLUSTER_NAME}
@@ -9,35 +9,37 @@ spec:
       cidrBlocks:
       - 192.168.0.0/16
   controlPlaneRef:
-    apiVersion: exp.infrastructure.cluster.x-k8s.io/v1alpha3
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
     kind: AzureManagedControlPlane
     name: ${CLUSTER_NAME}
   infrastructureRef:
-    apiVersion: exp.infrastructure.cluster.x-k8s.io/v1alpha3
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
     kind: AzureManagedCluster
     name: ${CLUSTER_NAME}
 ---
-apiVersion: exp.infrastructure.cluster.x-k8s.io/v1alpha3
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AzureManagedControlPlane
 metadata:
   name: ${CLUSTER_NAME}
   namespace: default
 spec:
-  defaultPoolRef:
-    name: agentpool0
+  identityRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: AzureClusterIdentity
+    name: ${CLUSTER_IDENTITY_NAME}
   location: ${AZURE_LOCATION}
   resourceGroupName: ${AZURE_RESOURCE_GROUP:=${CLUSTER_NAME}}
   sshPublicKey: ${AZURE_SSH_PUBLIC_KEY_B64:=""}
   subscriptionID: ${AZURE_SUBSCRIPTION_ID}
   version: ${KUBERNETES_VERSION}
 ---
-apiVersion: exp.infrastructure.cluster.x-k8s.io/v1alpha3
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AzureManagedCluster
 metadata:
   name: ${CLUSTER_NAME}
   namespace: default
 ---
-apiVersion: exp.cluster.x-k8s.io/v1alpha3
+apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachinePool
 metadata:
   name: agentpool0
@@ -52,22 +54,22 @@ spec:
         dataSecretName: ""
       clusterName: ${CLUSTER_NAME}
       infrastructureRef:
-        apiVersion: exp.infrastructure.cluster.x-k8s.io/v1alpha3
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: AzureManagedMachinePool
         name: agentpool0
-        namespace: default
       version: ${KUBERNETES_VERSION}
 ---
-apiVersion: exp.infrastructure.cluster.x-k8s.io/v1alpha3
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AzureManagedMachinePool
 metadata:
   name: agentpool0
   namespace: default
 spec:
-  osDiskSizeGB: 512
+  mode: System
+  osDiskSizeGB: 30
   sku: ${AZURE_NODE_MACHINE_TYPE}
 ---
-apiVersion: exp.cluster.x-k8s.io/v1alpha3
+apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachinePool
 metadata:
   name: agentpool1
@@ -82,17 +84,33 @@ spec:
         dataSecretName: ""
       clusterName: ${CLUSTER_NAME}
       infrastructureRef:
-        apiVersion: exp.infrastructure.cluster.x-k8s.io/v1alpha3
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: AzureManagedMachinePool
         name: agentpool1
-        namespace: default
       version: ${KUBERNETES_VERSION}
 ---
-apiVersion: exp.infrastructure.cluster.x-k8s.io/v1alpha3
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AzureManagedMachinePool
 metadata:
   name: agentpool1
   namespace: default
 spec:
-  osDiskSizeGB: 1024
+  mode: User
+  osDiskSizeGB: 40
   sku: ${AZURE_NODE_MACHINE_TYPE}
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureClusterIdentity
+metadata:
+  labels:
+    clusterctl.cluster.x-k8s.io/move-hierarchy: "true"
+  name: ${CLUSTER_IDENTITY_NAME}
+  namespace: default
+spec:
+  allowedNamespaces: {}
+  clientID: ${AZURE_CLIENT_ID}
+  clientSecret:
+    name: ${AZURE_CLUSTER_IDENTITY_SECRET_NAME}
+    namespace: ${AZURE_CLUSTER_IDENTITY_SECRET_NAMESPACE}
+  tenantID: ${AZURE_TENANT_ID}
+  type: ServicePrincipal

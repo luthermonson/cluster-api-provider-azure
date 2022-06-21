@@ -18,15 +18,14 @@ package v1alpha3
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	infrav1 "sigs.k8s.io/cluster-api-provider-azure/api/v1alpha3"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	"sigs.k8s.io/cluster-api/errors"
-
-	infrav1 "sigs.k8s.io/cluster-api-provider-azure/api/v1alpha3"
 )
 
 type (
-	// AzureMachineTemplate defines the template for an AzureMachine.
-	AzureMachineTemplate struct {
+	// AzureMachinePoolMachineTemplate defines the template for an AzureMachinePool machine.
+	AzureMachinePoolMachineTemplate struct {
 		// VMSize is the size of the Virtual Machine to build.
 		// See https://docs.microsoft.com/en-us/rest/api/compute/virtualmachines/createorupdate#virtualmachinesizetypes
 		VMSize string `json:"vmSize"`
@@ -68,13 +67,13 @@ type (
 		SpotVMOptions *infrav1.SpotVMOptions `json:"spotVMOptions,omitempty"`
 	}
 
-	// AzureMachinePoolSpec defines the desired state of AzureMachinePool
+	// AzureMachinePoolSpec defines the desired state of AzureMachinePool.
 	AzureMachinePoolSpec struct {
 		// Location is the Azure region location e.g. westus2
 		Location string `json:"location"`
 
-		// Template contains the details used to build a replica virtual machine within the Machine Pool
-		Template AzureMachineTemplate `json:"template"`
+		// Template contains the details used to build a replica virtual machine within the Machine Pool.
+		Template AzureMachinePoolMachineTemplate `json:"template"`
 
 		// AdditionalTags is an optional set of tags to add to an instance, in addition to the ones added by default by the
 		// Azure provider. If both the AzureCluster and the AzureMachine specify the same tag name with different values, the
@@ -113,7 +112,7 @@ type (
 		RoleAssignmentName string `json:"roleAssignmentName,omitempty"`
 	}
 
-	// AzureMachinePoolStatus defines the observed state of AzureMachinePool
+	// AzureMachinePoolStatus defines the observed state of AzureMachinePool.
 	AzureMachinePoolStatus struct {
 		// Ready is true when the provider resource is ready.
 		// +optional
@@ -125,7 +124,7 @@ type (
 
 		// Instances is the VM instance status for each VM in the VMSS
 		// +optional
-		Instances []*AzureMachinePoolInstanceStatus `json:"instances"`
+		Instances []*AzureMachinePoolInstanceStatus `json:"instances,omitempty"`
 
 		// Version is the Kubernetes version for the current VMSS model
 		// +optional
@@ -176,9 +175,14 @@ type (
 		// Conditions defines current service state of the AzureMachinePool.
 		// +optional
 		Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+
+		// LongRunningOperationState saves the state for an Azure long running operations so it can be continued on the
+		// next reconciliation loop.
+		// +optional
+		LongRunningOperationState *infrav1.Future `json:"longRunningOperationState,omitempty"`
 	}
 
-	// AzureMachinePoolInstanceStatus provides status information for each instance in the VMSS
+	// AzureMachinePoolInstanceStatus provides status information for each instance in the VMSS.
 	AzureMachinePoolInstanceStatus struct {
 		// Version defines the Kubernetes version for the VM Instance
 		// +optional
@@ -194,7 +198,11 @@ type (
 
 		// InstanceID is the identification of the Machine Instance within the VMSS
 		// +optional
-		InstanceID string `json:"instanceName"`
+		InstanceID string `json:"instanceID"`
+
+		// InstanceName is the name of the Machine Instance within the VMSS
+		// +optional
+		InstanceName string `json:"instanceName"`
 
 		// LatestModelApplied indicates the instance is running the most up-to-date VMSS model. A VMSS model describes
 		// the image version the VM is running. If the instance is not running the latest model, it means the instance
@@ -213,7 +221,7 @@ type (
 	// +kubebuilder:printcolumn:name="VMSS ID",type="string",priority=1,JSONPath=".spec.providerID",description="Azure VMSS ID"
 	// +kubebuilder:printcolumn:name="VM Size",type="string",priority=1,JSONPath=".spec.template.vmSize",description="Azure VM Size"
 
-	// AzureMachinePool is the Schema for the azuremachinepools API
+	// AzureMachinePool is the Schema for the azuremachinepools API.
 	AzureMachinePool struct {
 		metav1.TypeMeta   `json:",inline"`
 		metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -224,7 +232,7 @@ type (
 
 	// +kubebuilder:object:root=true
 
-	// AzureMachinePoolList contains a list of AzureMachinePool
+	// AzureMachinePoolList contains a list of AzureMachinePools.
 	AzureMachinePoolList struct {
 		metav1.TypeMeta `json:",inline"`
 		metav1.ListMeta `json:"metadata,omitempty"`
@@ -237,7 +245,7 @@ func (amp *AzureMachinePool) GetConditions() clusterv1.Conditions {
 	return amp.Status.Conditions
 }
 
-// SetConditions will set the given conditions on an AzureMachinePool object
+// SetConditions will set the given conditions on an AzureMachinePool object.
 func (amp *AzureMachinePool) SetConditions(conditions clusterv1.Conditions) {
 	amp.Status.Conditions = conditions
 }

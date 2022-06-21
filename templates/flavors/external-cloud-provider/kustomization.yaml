@@ -1,5 +1,6 @@
 namespace: default
 resources:
   - ../default
+
 patchesStrategicMerge:
   - patches/external-cloud-provider.yaml

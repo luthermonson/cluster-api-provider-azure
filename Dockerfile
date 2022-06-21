@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.1-experimental
+# syntax=docker/dockerfile:1.4
 
 # Copyright 2019 The Kubernetes Authors.
 #
@@ -15,7 +15,7 @@
 # limitations under the License.
 
 # Build the manager binary
-FROM golang:1.15.3 as builder
+FROM golang:1.17 as builder
 WORKDIR /workspace
 
 # Run this with docker build --build_arg $(go env GOPROXY) to override the goproxy
@@ -52,8 +52,9 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     -o manager ${package}
 
 # Production image
-FROM gcr.io/distroless/static:latest
+FROM gcr.io/distroless/static:nonroot
 WORKDIR /
 COPY --from=builder /workspace/manager .
-USER nobody
+# Use uid of nonroot user (65532) because kubernetes expects numeric user when applying pod security policies
+USER 65532
 ENTRYPOINT ["/manager"]
