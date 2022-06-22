@@ -52,6 +52,19 @@ type AzureManagedMachinePoolSpec struct {
 	// ProviderIDList is the unique identifier as specified by the cloud provider.
 	// +optional
 	ProviderIDList []string `json:"providerIDList,omitempty"`
+
+	// Scaling specifies the autoscaling parameters for the node pool.
+	// +optional
+	Scaling *ManagedMachinePoolScaling `json:"scaling,omitempty"`
+}
+
+// ManagedMachinePoolScaling specifies scaling options.
+type ManagedMachinePoolScaling struct {
+	// MinSize specifies the minimum number node count.
+	MinSize *int32 `json:"minSize"`
+
+	// MazSize specifies the maximum number node count.
+	MaxSize *int32 `json:"maxSize"`
 }
 
 // AzureManagedMachinePoolStatus defines the observed state of AzureManagedMachinePool.
