@@ -61,6 +61,17 @@ spec:
                 items:
                   type: string
                 type: array
+              scaling:
+                description: Scaling specifies the autoscaling parameters for the
+                  node pool.
+                properties:
+                  maxSize:
+                    format: int32
+                    type: integer
+                  minSize:
+                    format: int32
+                    type: integer
+                type: object
               sku:
                 description: SKU is the size of the VMs in the node pool.
                 type: string
@@ -130,6 +141,13 @@ spec:
                   according to the vmSize specified.
                 format: int32
                 type: integer
+              osType:
+                description: 'OSType specifies the virtual machine operating system.
+                  Default to Linux. Possible values include: ''Linux'', ''Windows'''
+                enum:
+                - Linux
+                - Windows
+                type: string
               providerIDList:
                 description: ProviderIDList is the unique identifier as specified
                   by the cloud provider.
@@ -141,19 +159,17 @@ spec:
                   node pool.
                 properties:
                   maxSize:
+                    description: MazSize specifies the maximum number node count.
                     format: int32
                     type: integer
                   minSize:
+                    description: MinSize specifies the minimum number node count.
                     format: int32
                     type: integer
+                required:
+                - maxSize
+                - minSize
                 type: object
-              osType:
-                description: 'OSType specifies the virtual machine operating system.
-                                Default to Linux. Possible values include: ''Linux'', ''Windows'''
-                enum:
-                  - Linux
-                  - Windows
-                type: string
               sku:
                 description: SKU is the size of the VMs in the node pool.
                 type: string
