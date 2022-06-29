@@ -244,6 +244,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			VMSize:       &pool.SKU,
 			OsDiskSizeGB: &pool.OSDiskSizeGB,
 			Count:        &pool.Replicas,
+			OsType:       containerservice.OSType(to.String(pool.OSType)),
 			Type:         containerservice.AgentPoolTypeVirtualMachineScaleSets,
 			VnetSubnetID: &managedClusterSpec.VnetSubnetID,
 			Mode:         containerservice.AgentPoolMode(pool.Mode),

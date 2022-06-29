@@ -147,6 +147,13 @@ spec:
                     format: int32
                     type: integer
                 type: object
+              osType:
+                description: 'OSType specifies the virtual machine operating system.
+                                Default to Linux. Possible values include: ''Linux'', ''Windows'''
+                enum:
+                  - Linux
+                  - Windows
+                type: string
               sku:
                 description: SKU is the size of the VMs in the node pool.
                 type: string

@@ -56,6 +56,11 @@ type AzureManagedMachinePoolSpec struct {
 	// Scaling specifies the autoscaling parameters for the node pool.
 	// +optional
 	Scaling *ManagedMachinePoolScaling `json:"scaling,omitempty"`
+
+	// OSType specifies the virtual machine operating system. Default to Linux. Possible values include: 'Linux', 'Windows'
+	// +kubebuilder:validation:Enum=Linux;Windows
+	// +optional
+	OSType *string `json:"osType,omitempty"`
 }
 
 // ManagedMachinePoolScaling specifies scaling options.

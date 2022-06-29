@@ -19,6 +19,8 @@ package v1alpha4
 import (
 	"testing"
 
+	"sigs.k8s.io/cluster-api-provider-azure/azure"
+
 	"github.com/Azure/go-autorest/autorest/to"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,6 +47,7 @@ func TestAzureManagedMachinePoolDefaultingWebhook(t *testing.T) {
 	val, ok := ammp.Labels[LabelAgentPoolMode]
 	g.Expect(ok).To(BeTrue())
 	g.Expect(val).To(Equal("System"))
+	g.Expect(*ammp.Spec.OSType).To(Equal(azure.LinuxOS))
 }
 
 func TestAzureManagedMachinePoolUpdatingWebhook(t *testing.T) {
@@ -101,6 +104,77 @@ func TestAzureManagedMachinePoolUpdatingWebhook(t *testing.T) {
 			err := tc.new.ValidateUpdate(tc.old, client)
 			if tc.wantErr {
 				g.Expect(err).To(HaveOccurred())
+			} else {
+				g.Expect(err).NotTo(HaveOccurred())
+			}
+		})
+	}
+}
+
+func TestAzureManagedMachinePool_ValidateCreate(t *testing.T) {
+	g := NewWithT(t)
+	tests := []struct {
+		name     string
+		ammp     *AzureManagedMachinePool
+		wantErr  bool
+		errorLen int
+	}{
+		{
+			name: "ostype Windows with System mode not allowed",
+			ammp: &AzureManagedMachinePool{
+				Spec: AzureManagedMachinePoolSpec{
+					Mode:   "System",
+					OSType: to.StringPtr(azure.WindowsOS),
+				},
+			},
+			wantErr:  true,
+			errorLen: 1,
+		},
+		{
+			name: "ostype windows with User mode",
+			ammp: &AzureManagedMachinePool{
+				Spec: AzureManagedMachinePoolSpec{
+					Mode:   "User",
+					OSType: to.StringPtr(azure.WindowsOS),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Windows clusters with 6char or less name",
+			ammp: &AzureManagedMachinePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "pool0",
+				},
+				Spec: AzureManagedMachinePoolSpec{
+					Mode:   "User",
+					OSType: to.StringPtr(azure.WindowsOS),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Windows clusters with more than 6char names are not allowed",
+			ammp: &AzureManagedMachinePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "pool0-name-too-long",
+				},
+				Spec: AzureManagedMachinePoolSpec{
+					Mode:   "User",
+					OSType: to.StringPtr(azure.WindowsOS),
+				},
+			},
+			wantErr:  true,
+			errorLen: 1,
+		},
+	}
+	var client client.Client
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.ammp.ValidateCreate(client)
+			if tc.wantErr {
+				g.Expect(err).To(HaveOccurred())
+				g.Expect(err).To(HaveLen(tc.errorLen))
 			} else {
 				g.Expect(err).NotTo(HaveOccurred())
 			}

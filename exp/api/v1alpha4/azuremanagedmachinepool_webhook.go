@@ -19,7 +19,9 @@ package v1alpha4
 import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"sigs.k8s.io/cluster-api-provider-azure/azure"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -44,7 +46,42 @@ func (r *AzureManagedMachinePool) Default(client client.Client) {
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
 func (r *AzureManagedMachinePool) ValidateCreate(client client.Client) error {
-	azuremanagedmachinepoollog.Info("validate create", "name", r.Name)
+	validators := []func() error{
+		r.validateOSType,
+		r.validateName,
+	}
+
+	var errs []error
+	for _, validator := range validators {
+		if err := validator(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return kerrors.NewAggregate(errs)
+}
+
+func (r *AzureManagedMachinePool) validateOSType() error {
+	if r.Spec.Mode == string(NodePoolModeSystem) {
+		if r.Spec.OSType != nil && *r.Spec.OSType != azure.LinuxOS {
+			return field.Forbidden(
+				field.NewPath("Spec", "OSType"),
+				"System node pooll must have OSType 'Linux'")
+		}
+	}
+
+	return nil
+}
+
+func (r *AzureManagedMachinePool) validateName() error {
+	if r.Spec.OSType != nil && *r.Spec.OSType == azure.WindowsOS {
+		if len(r.Name) > 6 {
+			return field.Invalid(
+				field.NewPath("Name"),
+				r.Name,
+				"Windows agent pool name can not be longer than 6 characters.")
+		}
+	}
+
 	return nil
 }
 

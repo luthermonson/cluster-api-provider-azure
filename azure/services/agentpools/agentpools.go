@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Azure/go-autorest/autorest/to"
+
 	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2021-05-01/containerservice"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
@@ -71,7 +73,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	profile := containerservice.AgentPool{
 		ManagedClusterAgentPoolProfileProperties: &containerservice.ManagedClusterAgentPoolProfileProperties{
 			VMSize:              &agentPoolSpec.SKU,
-			OsType:              containerservice.OSTypeLinux,
+			OsType:              containerservice.OSType(to.String(agentPoolSpec.OSType)),
 			OsDiskSizeGB:        &agentPoolSpec.OSDiskSizeGB,
 			Count:               &agentPoolSpec.Replicas,
 			Type:                containerservice.AgentPoolTypeVirtualMachineScaleSets,
@@ -111,6 +113,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 				EnableAutoScaling:   existingPool.EnableAutoScaling,
 				MinCount:            existingPool.MinCount,
 				MaxCount:            existingPool.MaxCount,
+				OsType:              existingPool.OsType,
 			},
 		}
 
@@ -122,6 +125,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 				EnableAutoScaling:   profile.EnableAutoScaling,
 				MinCount:            profile.MinCount,
 				MaxCount:            profile.MaxCount,
+				OsType:              profile.OsType,
 			},
 		}
 
