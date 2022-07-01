@@ -125,6 +125,13 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			},
 		}
 
+		// When autoscaling is set, the count of the nodes differ based on the autoscalar and should not depend on the
+		// count present in machinepool, azuremanagedmachinepool, hence we should not make an update api call based
+		// on difference in count.
+		if profile.EnableAutoScaling != nil && existingProfile.Count != nil {
+			normalizedProfile.Count = existingProfile.Count
+		}
+
 		// Diff and check if we require an update
 		diff := cmp.Diff(existingProfile, normalizedProfile)
 		if diff != "" {
