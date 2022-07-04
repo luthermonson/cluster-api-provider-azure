@@ -95,12 +95,6 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			return errors.Wrap(err, "failed to create or update agent pool")
 		}
 	} else {
-		ps := *existingPool.ManagedClusterAgentPoolProfileProperties.ProvisioningState
-		if ps != string(infrav1alpha4.Canceled) && ps != string(infrav1alpha4.Failed) && ps != string(infrav1alpha4.Succeeded) {
-			msg := fmt.Sprintf("Unable to update existing agent pool in non terminal state. Agent pool must be in one of the following provisioning states: canceled, failed, or succeeded. Actual state: %s", ps)
-			log.V(2).Info(msg)
-			return azure.WithTransientError(errors.New(msg), 20*time.Second)
-		}
 
 		// Normalize individual agent pools to diff in case we need to update
 		existingProfile := containerservice.AgentPool{
@@ -129,6 +123,12 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		diff := cmp.Diff(normalizedProfile, existingProfile)
 		if diff != "" {
 			log.V(2).Info(fmt.Sprintf("Update required (+new -old):\n%s", diff))
+			ps := *existingPool.ManagedClusterAgentPoolProfileProperties.ProvisioningState
+			if ps != string(infrav1alpha4.Canceled) && ps != string(infrav1alpha4.Failed) && ps != string(infrav1alpha4.Succeeded) {
+				msg := fmt.Sprintf("Unable to update existing agent pool in non terminal state. Agent pool must be in one of the following provisioning states: canceled, failed, or succeeded. Actual state: %s", ps)
+				log.V(2).Info(msg)
+				return azure.WithTransientError(errors.New(msg), 20*time.Second)
+			}
 			err = s.Client.CreateOrUpdate(ctx, agentPoolSpec.ResourceGroup, agentPoolSpec.Cluster, agentPoolSpec.Name,
 				profile, customHeaders)
 			if err != nil {
