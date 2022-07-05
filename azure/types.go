@@ -450,4 +450,7 @@ type AgentPoolSpec struct {
 
 	// EnableAutoScaling - Whether to enable auto-scaler
 	EnableAutoScaling *bool `json:"enableAutoScaling,omitempty"`
+
+	// OSType specifies the operating system for the node pool. Allowed values are 'Linux' and 'Windows'
+	OSType *string `json:"osType,omitempty"`
 }

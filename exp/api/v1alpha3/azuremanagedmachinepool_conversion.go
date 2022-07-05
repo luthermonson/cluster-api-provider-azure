@@ -17,7 +17,9 @@ limitations under the License.
 package v1alpha3
 
 import (
+	apiconversion "k8s.io/apimachinery/pkg/conversion"
 	expv1alpha4 "sigs.k8s.io/cluster-api-provider-azure/exp/api/v1alpha4"
+	v1alpha4 "sigs.k8s.io/cluster-api-provider-azure/exp/api/v1alpha4"
 	utilconversion "sigs.k8s.io/cluster-api/util/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
@@ -53,4 +55,8 @@ func (dst *AzureManagedMachinePool) ConvertFrom(srcRaw conversion.Hub) error { /
 	}
 
 	return nil
+}
+
+func Convert_v1alpha4_AzureManagedMachinePoolSpec_To_v1alpha3_AzureManagedMachinePoolSpec(in *v1alpha4.AzureManagedMachinePoolSpec, out *AzureManagedMachinePoolSpec, s apiconversion.Scope) error {
+	return autoConvert_v1alpha4_AzureManagedMachinePoolSpec_To_v1alpha3_AzureManagedMachinePoolSpec(in, out, s)
 }

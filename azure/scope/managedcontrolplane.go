@@ -493,6 +493,7 @@ func (s *ManagedControlPlaneScope) GetAgentPoolSpecs(ctx context.Context) ([]azu
 			Replicas:     1,
 			OSDiskSizeGB: 0,
 			Mode:         pool.Spec.Mode,
+			OSType:       pool.Spec.OSType,
 		}
 
 		// Set optional values
@@ -546,7 +547,8 @@ func (s *ManagedControlPlaneScope) AgentPoolSpec() azure.AgentPoolSpec {
 			s.ControlPlane.Spec.VirtualNetwork.Name,
 			s.ControlPlane.Spec.VirtualNetwork.Subnet.Name,
 		),
-		Mode: s.InfraMachinePool.Spec.Mode,
+		Mode:   s.InfraMachinePool.Spec.Mode,
+		OSType: s.InfraMachinePool.Spec.OSType,
 	}
 
 	if s.InfraMachinePool.Spec.OSDiskSizeGB != nil {
