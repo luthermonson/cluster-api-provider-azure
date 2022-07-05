@@ -9,8 +9,6 @@ commonLabels:
 resources:
   - ../../config/default/namespace.yaml
   - ../../config/default/aad-pod-identity-deployment.yaml
-
-bases:
   - ../../config/crd
   - ../../config/webhook
   - ../../config/manager
@@ -73,60 +71,60 @@ patchesJson6902:
       namespace: capi-webhook-system
       version: v1
     path: patch_service_account.yaml
-#  - target:
-#      group: apiextensions.k8s.io
-#      version: v1
-#      kind: CustomResourceDefinition
-#      name: azureclusteridentities.infrastructure.cluster.x-k8s.io
-#    path: patch_crd_webhook_namespace.yaml
-#  - target:
-#      group: apiextensions.k8s.io
-#      version: v1
-#      kind: CustomResourceDefinition
-#      name: azureclusters.infrastructure.cluster.x-k8s.io
-#    path: patch_crd_webhook_namespace.yaml
-#  - target:
-#      group: apiextensions.k8s.io
-#      version: v1
-#      kind: CustomResourceDefinition
-#      name: azuremachines.infrastructure.cluster.x-k8s.io
-#    path: patch_crd_webhook_namespace.yaml
-#  - target:
-#      group: apiextensions.k8s.io
-#      version: v1
-#      kind: CustomResourceDefinition
-#      name: azuremachinetemplates.infrastructure.cluster.x-k8s.io
-#    path: patch_crd_webhook_namespace.yaml
-#  - target:
-#      group: apiextensions.k8s.io
-#      version: v1
-#      kind: CustomResourceDefinition
-#      name: azuremachinepools.infrastructure.cluster.x-k8s.io
-#    path: patch_crd_webhook_namespace.yaml
-#  - target:
-#      group: apiextensions.k8s.io
-#      version: v1
-#      kind: CustomResourceDefinition
-#      name: azuremachinepoolmachines.infrastructure.cluster.x-k8s.io
-#    path: patch_crd_webhook_namespace.yaml
-#  - target:
-#      group: apiextensions.k8s.io
-#      version: v1
-#      kind: CustomResourceDefinition
-#      name: azuremanagedclusters.infrastructure.cluster.x-k8s.io
-#    path: patch_crd_webhook_namespace.yaml
-#  - target:
-#      group: apiextensions.k8s.io
-#      version: v1
-#      kind: CustomResourceDefinition
-#      name: azuremanagedcontrolplanes.infrastructure.cluster.x-k8s.io
-#    path: patch_crd_webhook_namespace.yaml
-#  - target:
-#      group: apiextensions.k8s.io
-#      version: v1
-#      kind: CustomResourceDefinition
-#      name: azuremanagedmachinepools.infrastructure.cluster.x-k8s.io
-#    path: patch_crd_webhook_namespace.yaml
+  - target:
+      group: apiextensions.k8s.io
+      version: v1
+      kind: CustomResourceDefinition
+      name: azureclusteridentities.infrastructure.cluster.x-k8s.io
+    path: patch_crd_webhook_namespace.yaml
+  - target:
+      group: apiextensions.k8s.io
+      version: v1
+      kind: CustomResourceDefinition
+      name: azureclusters.infrastructure.cluster.x-k8s.io
+    path: patch_crd_webhook_namespace.yaml
+  - target:
+      group: apiextensions.k8s.io
+      version: v1
+      kind: CustomResourceDefinition
+      name: azuremachines.infrastructure.cluster.x-k8s.io
+    path: patch_crd_webhook_namespace.yaml
+  - target:
+      group: apiextensions.k8s.io
+      version: v1
+      kind: CustomResourceDefinition
+      name: azuremachinetemplates.infrastructure.cluster.x-k8s.io
+    path: patch_crd_webhook_namespace.yaml
+  - target:
+      group: apiextensions.k8s.io
+      version: v1
+      kind: CustomResourceDefinition
+      name: azuremachinepools.infrastructure.cluster.x-k8s.io
+    path: patch_crd_webhook_namespace.yaml
+  - target:
+      group: apiextensions.k8s.io
+      version: v1
+      kind: CustomResourceDefinition
+      name: azuremachinepoolmachines.infrastructure.cluster.x-k8s.io
+    path: patch_crd_webhook_namespace.yaml
+  - target:
+      group: apiextensions.k8s.io
+      version: v1
+      kind: CustomResourceDefinition
+      name: azuremanagedclusters.infrastructure.cluster.x-k8s.io
+    path: patch_crd_webhook_namespace.yaml
+  - target:
+      group: apiextensions.k8s.io
+      version: v1
+      kind: CustomResourceDefinition
+      name: azuremanagedcontrolplanes.infrastructure.cluster.x-k8s.io
+    path: patch_crd_webhook_namespace.yaml
+  - target:
+      group: apiextensions.k8s.io
+      version: v1
+      kind: CustomResourceDefinition
+      name: azuremanagedmachinepools.infrastructure.cluster.x-k8s.io
+    path: patch_crd_webhook_namespace.yaml
   - target:
       group: rbac.authorization.k8s.io
       version: v1
