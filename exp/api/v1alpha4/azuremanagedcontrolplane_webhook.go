@@ -100,6 +100,14 @@ func (r *AzureManagedControlPlane) ValidateUpdate(oldRaw runtime.Object) error {
 	var allErrs field.ErrorList
 	old := oldRaw.(*AzureManagedControlPlane)
 
+	if r.Name != old.Name {
+		allErrs = append(allErrs,
+			field.Invalid(
+				field.NewPath("Name"),
+				r.Name,
+				"field is immutable"))
+	}
+
 	if r.Spec.SubscriptionID != old.Spec.SubscriptionID {
 		allErrs = append(allErrs,
 			field.Invalid(
@@ -265,6 +273,7 @@ func (r *AzureManagedControlPlane) ValidateDelete() error {
 // Validate the Azure Machine Pool and return an aggregate error.
 func (r *AzureManagedControlPlane) Validate() error {
 	validators := []func() error{
+		r.validateName,
 		r.validateVersion,
 		r.validateDNSServiceIP,
 		r.validateSSHKey,
@@ -412,4 +421,15 @@ func (r *AzureManagedControlPlane) validateAPIServerAccessProfileUpdate(old *Azu
 	}
 
 	return allErrs
+}
+
+func (r *AzureManagedControlPlane) validateName() error {
+	lName := strings.ToLower(r.Name)
+	if strings.Contains(lName, "microsoft") ||
+		strings.Contains(lName, "windows") {
+		return field.Invalid(field.NewPath("Name"), r.Name,
+			"cluster name is invalid because 'MICROSOFT' and 'WINDOWS' can't be used as either a whole word or a substring in the name")
+	}
+
+	return nil
 }
