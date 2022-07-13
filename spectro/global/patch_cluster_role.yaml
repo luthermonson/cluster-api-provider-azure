@@ -1,0 +1,21 @@
+- op: add
+  path: /rules/0
+  value:
+    apiGroups:
+      - infrastructure.cluster.x-k8s.io
+    resources:
+      - azuremanagedclusters
+      - azuremanagedcontrolplanes
+    verbs:
+      - '*'
+- op: add
+  path: /rules/0
+  value:
+    apiGroups:
+      - cluster.x-k8s.io
+    resources:
+      - clusters
+    verbs:
+      - get
+      - list
+      - watch

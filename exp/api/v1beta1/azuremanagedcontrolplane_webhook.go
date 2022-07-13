@@ -256,7 +256,7 @@ func (m *AzureManagedControlPlane) Validate(cli client.Client) error {
 		m.validateSSHKey,
 		m.validateLoadBalancerProfile,
 		m.validateAPIServerAccessProfile,
-		m.validateManagedClusterNetwork,
+		//m.validateManagedClusterNetwork,
 	}
 
 	var errs []error

@@ -53,6 +53,12 @@ configurations:
 
 patchesJson6902:
   - target:
+      group: rbac.authorization.k8s.io
+      version: v1
+      kind: ClusterRole
+      name: capz-aad-pod-id-nmi-role
+    path: patch_cluster_role.yaml
+  - target:
       kind: Namespace
       name: system
       version: v1
