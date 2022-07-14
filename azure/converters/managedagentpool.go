@@ -51,7 +51,7 @@ func AgentPoolToContainerServiceAgentPool(pool azure.AgentPoolSpec) containerser
 	return containerservice.AgentPool{
 		ManagedClusterAgentPoolProfileProperties: &containerservice.ManagedClusterAgentPoolProfileProperties{
 			VMSize:              &pool.SKU,
-			OsType:              containerservice.OSTypeLinux,
+			OsType:              containerservice.OSType(to.String(pool.OSType)),
 			OsDiskSizeGB:        &pool.OSDiskSizeGB,
 			Count:               &pool.Replicas,
 			Type:                containerservice.AgentPoolTypeVirtualMachineScaleSets,

@@ -824,6 +824,11 @@ func (in *AzureManagedMachinePoolSpec) DeepCopyInto(out *AzureManagedMachinePool
 		*out = new(ManagedMachinePoolScaling)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.OSType != nil {
+		in, out := &in.OSType, &out.OSType
+		*out = new(string)
+		**out = **in
+	}
 	if in.MaxPods != nil {
 		in, out := &in.MaxPods, &out.MaxPods
 		*out = new(int32)

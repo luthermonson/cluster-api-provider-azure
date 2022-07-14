@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"sigs.k8s.io/cluster-api-provider-azure/azure"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2021-05-01/containerservice"
@@ -441,6 +442,26 @@ func TestAzureManagedMachinePoolUpdatingWebhook(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "Cannot change OSType of the agentpool",
+			new: &AzureManagedMachinePool{
+				Spec: AzureManagedMachinePoolSpec{
+					OSType:       to.StringPtr("Linux"),
+					Mode:         "System",
+					SKU:          "StandardD2S_V3",
+					OSDiskSizeGB: to.Int32Ptr(512),
+				},
+			},
+			old: &AzureManagedMachinePool{
+				Spec: AzureManagedMachinePoolSpec{
+					OSType:       to.StringPtr("Windows"),
+					Mode:         "System",
+					SKU:          "StandardD2S_V4",
+					OSDiskSizeGB: to.Int32Ptr(512),
+				},
+			},
+			wantErr: true,
+		},
 	}
 	var client client.Client
 	for _, tc := range tests {
@@ -506,6 +527,54 @@ func TestAzureManagedMachinePool_ValidateCreate(t *testing.T) {
 			ammp: &AzureManagedMachinePool{
 				Spec: AzureManagedMachinePoolSpec{
 					MaxPods: to.Int32Ptr(9),
+				},
+			},
+			wantErr:  true,
+			errorLen: 1,
+		},
+		{
+			name: "ostype Windows with System mode not allowed",
+			ammp: &AzureManagedMachinePool{
+				Spec: AzureManagedMachinePoolSpec{
+					Mode:   "System",
+					OSType: to.StringPtr(azure.WindowsOS),
+				},
+			},
+			wantErr:  true,
+			errorLen: 1,
+		},
+		{
+			name: "ostype windows with User mode",
+			ammp: &AzureManagedMachinePool{
+				Spec: AzureManagedMachinePoolSpec{
+					Mode:   "User",
+					OSType: to.StringPtr(azure.WindowsOS),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Windows clusters with 6char or less name",
+			ammp: &AzureManagedMachinePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "pool0",
+				},
+				Spec: AzureManagedMachinePoolSpec{
+					Mode:   "User",
+					OSType: to.StringPtr(azure.WindowsOS),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Windows clusters with more than 6char names are not allowed",
+			ammp: &AzureManagedMachinePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "pool0-name-too-long",
+				},
+				Spec: AzureManagedMachinePoolSpec{
+					Mode:   "User",
+					OSType: to.StringPtr(azure.WindowsOS),
 				},
 			},
 			wantErr:  true,

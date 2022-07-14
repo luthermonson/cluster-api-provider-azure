@@ -88,6 +88,14 @@ func (m *AzureManagedControlPlane) ValidateUpdate(oldRaw runtime.Object, client 
 	var allErrs field.ErrorList
 	old := oldRaw.(*AzureManagedControlPlane)
 
+	if m.Name != old.Name {
+		allErrs = append(allErrs,
+			field.Invalid(
+				field.NewPath("Name"),
+				m.Name,
+				"field is immutable"))
+	}
+
 	if m.Spec.SubscriptionID != old.Spec.SubscriptionID {
 		allErrs = append(allErrs,
 			field.Invalid(
@@ -251,6 +259,7 @@ func (m *AzureManagedControlPlane) ValidateDelete(_ client.Client) error {
 // Validate the Azure Machine Pool and return an aggregate error.
 func (m *AzureManagedControlPlane) Validate(cli client.Client) error {
 	validators := []func(client client.Client) error{
+		m.validateName,
 		m.validateVersion,
 		m.validateDNSServiceIP,
 		m.validateSSHKey,
@@ -275,6 +284,18 @@ func (m *AzureManagedControlPlane) validateDNSServiceIP(_ client.Client) error {
 		if net.ParseIP(*m.Spec.DNSServiceIP) == nil {
 			return errors.New("DNSServiceIP must be a valid IP")
 		}
+	}
+
+	return nil
+}
+
+// validateName validates the AzureManagedControlPlane name
+func (m *AzureManagedControlPlane) validateName(_ client.Client) error {
+	lName := strings.ToLower(m.Name)
+	if strings.Contains(lName, "microsoft") ||
+		strings.Contains(lName, "windows") {
+		return field.Invalid(field.NewPath("Name"), m.Name,
+			"cluster name is invalid because 'MICROSOFT' and 'WINDOWS' can't be used as either a whole word or a substring in the name")
 	}
 
 	return nil

@@ -76,6 +76,11 @@ type AzureManagedMachinePoolSpec struct {
 	// +optional
 	Scaling *ManagedMachinePoolScaling `json:"scaling,omitempty"`
 
+	// OSType specifies the virtual machine operating system. Default to Linux. Possible values include: 'Linux', 'Windows'
+	// +kubebuilder:validation:Enum=Linux;Windows
+	// +optional
+	OSType *string `json:"osType,omitempty"`
+
 	// MaxPods specifies the kubelet --max-pods configuration for the node pool.
 	// +optional
 	MaxPods *int32 `json:"maxPods,omitempty"`

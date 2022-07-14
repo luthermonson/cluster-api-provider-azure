@@ -50,6 +50,8 @@ func (m *AzureManagedMachinePool) Default(client client.Client) {
 func (m *AzureManagedMachinePool) ValidateCreate(client client.Client) error {
 	validators := []func() error{
 		m.validateMaxPods,
+		m.validateOSType,
+		m.validateName,
 	}
 
 	var errs []error
@@ -73,6 +75,25 @@ func (m *AzureManagedMachinePool) ValidateUpdate(oldRaw runtime.Object, client c
 				field.NewPath("Spec", "SKU"),
 				m.Spec.SKU,
 				"field is immutable"))
+	}
+
+	if old.Spec.OSType != nil {
+		// Prevent OSType modification if it was already set to some value
+		if m.Spec.OSType == nil {
+			// unsetting the field is not allowed
+			allErrs = append(allErrs,
+				field.Invalid(
+					field.NewPath("Spec", "OSType"),
+					m.Spec.OSType,
+					"field is immutable, unsetting is not allowed"))
+		} else if *m.Spec.OSType != *old.Spec.OSType {
+			// changing the field is not allowed
+			allErrs = append(allErrs,
+				field.Invalid(
+					field.NewPath("Spec", "OSType"),
+					*m.Spec.OSType,
+					"field is immutable"))
+		}
 	}
 
 	if old.Spec.OSDiskSizeGB != nil {
@@ -204,6 +225,31 @@ func (m *AzureManagedMachinePool) validateMaxPods() error {
 				field.NewPath("Spec", "MaxPods"),
 				m.Spec.MaxPods,
 				"MaxPods must be between 10 and 250")
+		}
+	}
+
+	return nil
+}
+
+func (r *AzureManagedMachinePool) validateOSType() error {
+	if r.Spec.Mode == string(NodePoolModeSystem) {
+		if r.Spec.OSType != nil && *r.Spec.OSType != azure.LinuxOS {
+			return field.Forbidden(
+				field.NewPath("Spec", "OSType"),
+				"System node pooll must have OSType 'Linux'")
+		}
+	}
+
+	return nil
+}
+
+func (r *AzureManagedMachinePool) validateName() error {
+	if r.Spec.OSType != nil && *r.Spec.OSType == azure.WindowsOS {
+		if len(r.Name) > 6 {
+			return field.Invalid(
+				field.NewPath("Name"),
+				r.Name,
+				"Windows agent pool name can not be longer than 6 characters.")
 		}
 	}
 

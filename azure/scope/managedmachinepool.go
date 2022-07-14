@@ -156,6 +156,7 @@ func buildAgentPoolSpec(managedControlPlane *infrav1exp.AzureManagedControlPlane
 		MaxPods:           managedMachinePool.Spec.MaxPods,
 		AvailabilityZones: managedMachinePool.Spec.AvailabilityZones,
 		OsDiskType:        managedMachinePool.Spec.OsDiskType,
+		OSType:            managedMachinePool.Spec.OSType,
 		EnableUltraSSD:    managedMachinePool.Spec.EnableUltraSSD,
 	}
 

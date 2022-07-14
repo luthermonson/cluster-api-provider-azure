@@ -886,6 +886,7 @@ func autoConvert_v1beta1_AzureManagedMachinePoolSpec_To_v1alpha3_AzureManagedMac
 	// WARNING: in.Taints requires manual conversion: does not exist in peer-type
 	out.ProviderIDList = *(*[]string)(unsafe.Pointer(&in.ProviderIDList))
 	// WARNING: in.Scaling requires manual conversion: does not exist in peer-type
+	// WARNING: in.OSType requires manual conversion: does not exist in peer-type
 	// WARNING: in.MaxPods requires manual conversion: does not exist in peer-type
 	// WARNING: in.OsDiskType requires manual conversion: does not exist in peer-type
 	// WARNING: in.EnableUltraSSD requires manual conversion: does not exist in peer-type
