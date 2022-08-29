@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -195,8 +194,8 @@ func (r *AzureJSONMachineReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	if azureMachine.Spec.Identity == infrav1.VMIdentityNone {
-		log.Info(fmt.Sprintf("WARNING, %s", spIdentityWarning))
-		r.Recorder.Eventf(azureMachine, corev1.EventTypeWarning, "VMIdentityNone", spIdentityWarning)
+		//log.Info(fmt.Sprintf("WARNING, %s", spIdentityWarning))
+		//r.Recorder.Eventf(azureMachine, corev1.EventTypeWarning, "VMIdentityNone", spIdentityWarning)
 	}
 
 	newSecret, err := GetCloudProviderSecret(
