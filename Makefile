@@ -125,7 +125,7 @@ STAGING_REGISTRY := gcr.io/k8s-staging-cluster-api-azure
 PROD_REGISTRY := registry.k8s.io/cluster-api-azure
 IMAGE_NAME ?= cluster-api-azure-controller
 CONTROLLER_IMG ?= $(REGISTRY)/$(IMAGE_NAME)
-TAG ?= spectro-v1.3.2-20220713
+TAG ?= spectro-v1.3.2-$(shell date +%Y%m%d)
 ARCH ?= $(GOARCH)
 ALL_ARCH = amd64 arm arm64 ppc64le s390x
 
