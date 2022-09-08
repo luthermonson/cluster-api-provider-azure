@@ -127,6 +127,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		if profile.EnableAutoScaling != nil && existingProfile.Count != nil {
 			normalizedProfile.Count = existingProfile.Count
 		}
+		log.V(0).Info("SNEHAL", "normalized", normalizedProfile, "existing", existingProfile)
 
 		// Diff and check if we require an update
 		diff := cmp.Diff(normalizedProfile, existingProfile)
