@@ -1301,6 +1301,7 @@ func autoConvert_v1alpha4_ManagedControlPlaneVirtualNetwork_To_v1beta1_ManagedCo
 	if err := Convert_v1alpha4_ManagedControlPlaneSubnet_To_v1beta1_ManagedControlPlaneSubnet(&in.Subnet, &out.Subnet, s); err != nil {
 		return err
 	}
+	out.ResourceGroupName = in.ResourceGroupName
 	return nil
 }
 
@@ -1315,6 +1316,7 @@ func autoConvert_v1beta1_ManagedControlPlaneVirtualNetwork_To_v1alpha4_ManagedCo
 	if err := Convert_v1beta1_ManagedControlPlaneSubnet_To_v1alpha4_ManagedControlPlaneSubnet(&in.Subnet, &out.Subnet, s); err != nil {
 		return err
 	}
+	out.ResourceGroupName = in.ResourceGroupName
 	return nil
 }
 

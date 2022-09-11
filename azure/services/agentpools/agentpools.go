@@ -144,6 +144,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			}
 			normalizedProfile.Count = existingProfile.Count
 		}
+		log.V(0).Info("SNEHAL", "normalized", normalizedProfile, "existing", existingProfile)
 
 		// set ReplicasManagedByAutoscalerAnnotation to false as it is disabled by the user.
 		if !to.Bool(profile.EnableAutoScaling) && s.scope.GetCAPIMachinePoolAnnotation(ctx, azure.ReplicasManagedByAutoscalerAnnotation) == "true" {

@@ -21,7 +21,8 @@ SHELL:=/usr/bin/env bash
 .DEFAULT_GOAL:=help
 
 GOPATH  := $(shell go env GOPATH)
-GOARCH  := $(shell go env GOARCH)
+#GOARCH  := $(shell go env GOARCH)
+GOARCH  := amd64
 GOOS    := $(shell go env GOOS)
 GOPROXY := $(shell go env GOPROXY)
 ifeq ($(GOPROXY),)

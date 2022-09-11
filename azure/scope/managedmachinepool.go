@@ -146,6 +146,10 @@ func buildAgentPoolSpec(managedControlPlane *infrav1exp.AzureManagedControlPlane
 		replicas = *machinePool.Spec.Replicas
 	}
 
+	resourceGroupName := managedControlPlane.Spec.ResourceGroupName
+	if managedControlPlane.Spec.VirtualNetwork.ResourceGroupName != "" {
+		resourceGroupName = managedControlPlane.Spec.VirtualNetwork.ResourceGroupName
+	}
 	agentPoolSpec := azure.AgentPoolSpec{
 		Name:          to.String(managedMachinePool.Spec.Name),
 		ResourceGroup: managedControlPlane.Spec.ResourceGroupName,
@@ -155,7 +159,7 @@ func buildAgentPoolSpec(managedControlPlane *infrav1exp.AzureManagedControlPlane
 		Version:       normalizedVersion,
 		VnetSubnetID: azure.SubnetID(
 			managedControlPlane.Spec.SubscriptionID,
-			managedControlPlane.Spec.ResourceGroupName,
+			resourceGroupName,
 			managedControlPlane.Spec.VirtualNetwork.Name,
 			managedControlPlane.Spec.VirtualNetwork.Subnet.Name,
 		),

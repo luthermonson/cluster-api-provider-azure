@@ -205,6 +205,8 @@ type ManagedControlPlaneVirtualNetwork struct {
 	CIDRBlock string `json:"cidrBlock"`
 	// +optional
 	Subnet ManagedControlPlaneSubnet `json:"subnet,omitempty"`
+	// ResourceGroupName is the name of the Azure resource group for the VNet and Subnet.
+	ResourceGroupName string `json:"resourceGroupName,omitempty"`
 }
 
 // ManagedControlPlaneSubnet describes a subnet for an AKS cluster.

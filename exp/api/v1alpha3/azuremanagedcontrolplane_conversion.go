@@ -81,3 +81,12 @@ func (dst *AzureManagedControlPlaneList) ConvertFrom(srcRaw conversion.Hub) erro
 	src := srcRaw.(*expv1beta1.AzureManagedControlPlaneList)
 	return Convert_v1beta1_AzureManagedControlPlaneList_To_v1alpha3_AzureManagedControlPlaneList(src, dst, nil)
 }
+
+func Convert_v1beta1_ManagedControlPlaneVirtualNetwork_To_v1alpha3_ManagedControlPlaneVirtualNetwork(in *expv1beta1.ManagedControlPlaneVirtualNetwork, out *ManagedControlPlaneVirtualNetwork, s apiconversion.Scope) error {
+	out.Name = in.Name
+	out.Subnet.Name = in.Subnet.Name
+	out.Subnet.CIDRBlock = in.Subnet.CIDRBlock
+	out.CIDRBlock = in.CIDRBlock
+
+	return nil
+}
