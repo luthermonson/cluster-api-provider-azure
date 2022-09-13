@@ -56,6 +56,11 @@ type AzureManagedMachinePoolSpec struct {
 	// ProviderIDList is the unique identifier as specified by the cloud provider.
 	// +optional
 	ProviderIDList []string `json:"providerIDList,omitempty"`
+
+	// OSType specifies the virtual machine operating system. Default to Linux. Possible values include: 'Linux', 'Windows'
+	// +kubebuilder:validation:Enum=Linux;Windows
+	// +optional
+	OSType *string `json:"osType,omitempty"`
 }
 
 // AzureManagedMachinePoolStatus defines the observed state of AzureManagedMachinePool.

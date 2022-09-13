@@ -1173,6 +1173,7 @@ func autoConvert_v1alpha4_AzureManagedMachinePoolSpec_To_v1beta1_AzureManagedMac
 	out.SKU = in.SKU
 	out.OSDiskSizeGB = (*int32)(unsafe.Pointer(in.OSDiskSizeGB))
 	out.ProviderIDList = *(*[]string)(unsafe.Pointer(&in.ProviderIDList))
+	out.OSType = (*string)(unsafe.Pointer(in.OSType))
 	return nil
 }
 
@@ -1191,7 +1192,7 @@ func autoConvert_v1beta1_AzureManagedMachinePoolSpec_To_v1alpha4_AzureManagedMac
 	// WARNING: in.Taints requires manual conversion: does not exist in peer-type
 	out.ProviderIDList = *(*[]string)(unsafe.Pointer(&in.ProviderIDList))
 	// WARNING: in.Scaling requires manual conversion: does not exist in peer-type
-	// WARNING: in.OSType requires manual conversion: does not exist in peer-type
+	out.OSType = (*string)(unsafe.Pointer(in.OSType))
 	// WARNING: in.MaxPods requires manual conversion: does not exist in peer-type
 	// WARNING: in.OsDiskType requires manual conversion: does not exist in peer-type
 	// WARNING: in.EnableUltraSSD requires manual conversion: does not exist in peer-type
