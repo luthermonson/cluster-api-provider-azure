@@ -171,6 +171,12 @@ func buildAgentPoolSpec(managedControlPlane *infrav1exp.AzureManagedControlPlane
 		EnableUltraSSD:    managedMachinePool.Spec.EnableUltraSSD,
 	}
 
+	// Set OSType to Linux by default if not specified
+	if managedMachinePool.Spec.OSType == nil || *managedMachinePool.Spec.OSType == "" {
+		osType := azure.LinuxOS
+		agentPoolSpec.OSType = &osType
+	}
+
 	if managedMachinePool.Spec.OSDiskSizeGB != nil {
 		agentPoolSpec.OSDiskSizeGB = *managedMachinePool.Spec.OSDiskSizeGB
 	}
