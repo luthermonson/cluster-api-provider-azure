@@ -400,11 +400,17 @@ func computeDiffOfNormalizedClusters(managedCluster containerservice.ManagedClus
 		propertiesNormalized.APIServerAccessProfile = &containerservice.ManagedClusterAPIServerAccessProfile{
 			AuthorizedIPRanges: managedCluster.APIServerAccessProfile.AuthorizedIPRanges,
 		}
+		if managedCluster.APIServerAccessProfile.AuthorizedIPRanges == nil || len(*managedCluster.APIServerAccessProfile.AuthorizedIPRanges) == 0 {
+			propertiesNormalized.APIServerAccessProfile.AuthorizedIPRanges = nil
+		}
 	}
 
 	if existingMC.APIServerAccessProfile != nil {
 		existingMCPropertiesNormalized.APIServerAccessProfile = &containerservice.ManagedClusterAPIServerAccessProfile{
 			AuthorizedIPRanges: existingMC.APIServerAccessProfile.AuthorizedIPRanges,
+		}
+		if existingMC.APIServerAccessProfile.AuthorizedIPRanges == nil || len(*existingMC.APIServerAccessProfile.AuthorizedIPRanges) == 0 {
+			propertiesNormalized.APIServerAccessProfile.AuthorizedIPRanges = nil
 		}
 	}
 
