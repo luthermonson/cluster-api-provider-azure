@@ -94,6 +94,10 @@ type AzureManagedMachinePoolSpec struct {
 	// EnableUltraSSD enables the storage type UltraSSD_LRS for the agent pool.
 	// +optional
 	EnableUltraSSD *bool `json:"enableUltraSSD,omitempty"`
+
+	// SubnetName selects the Subnet where the MachinePool will be placed
+	// +optional
+	SubnetName string `json:"subnetName,omitempty"`
 }
 
 // ManagedMachinePoolScaling specifies scaling options.
