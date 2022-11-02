@@ -28,6 +28,8 @@ const (
 	Node string = "node"
 	// Bastion subnet label.
 	Bastion string = "bastion"
+	// All subnet label.
+	All string = "all"
 )
 
 // Futures is a slice of Future.
@@ -552,6 +554,9 @@ const (
 
 	// SubnetBastion defines a Bastion subnet role.
 	SubnetBastion = SubnetRole(Bastion)
+
+	// SubnetAll defines a role that can be used for both Kubernetes control plane node and Kubernetes workload node.
+	SubnetAll = SubnetRole(All)
 )
 
 // SubnetSpec configures an Azure subnet.
@@ -582,17 +587,17 @@ type SubnetSpec struct {
 // GetControlPlaneSubnet returns the cluster control plane subnet.
 func (n *NetworkSpec) GetControlPlaneSubnet() (SubnetSpec, error) {
 	for _, sn := range n.Subnets {
-		if sn.Role == SubnetControlPlane {
+		if sn.Role == SubnetControlPlane || sn.Role == SubnetAll {
 			return sn, nil
 		}
 	}
-	return SubnetSpec{}, errors.Errorf("no subnet found with role %s", SubnetControlPlane)
+	return SubnetSpec{}, errors.Errorf("no subnet found with role %s or %s", SubnetControlPlane, SubnetAll)
 }
 
 // UpdateControlPlaneSubnet updates the cluster control plane subnet.
 func (n *NetworkSpec) UpdateControlPlaneSubnet(subnet SubnetSpec) {
 	for i, sn := range n.Subnets {
-		if sn.Role == SubnetControlPlane {
+		if sn.Role == SubnetControlPlane || sn.Role == SubnetAll {
 			n.Subnets[i] = subnet
 		}
 	}
@@ -601,7 +606,7 @@ func (n *NetworkSpec) UpdateControlPlaneSubnet(subnet SubnetSpec) {
 // UpdateNodeSubnet updates the cluster node subnet.
 func (n *NetworkSpec) UpdateNodeSubnet(subnet SubnetSpec) {
 	for i, sn := range n.Subnets {
-		if sn.Role == SubnetNode {
+		if sn.Role == SubnetNode || sn.Role == SubnetAll {
 			n.Subnets[i] = subnet
 		}
 	}

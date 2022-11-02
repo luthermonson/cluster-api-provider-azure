@@ -348,9 +348,9 @@ func (m *MachineScope) Subnet() infrav1.SubnetSpec {
 
 // AvailabilityZone returns the AzureMachine Availability Zone.
 // Priority for selecting the AZ is
-//   1) Machine.Spec.FailureDomain
-//   2) AzureMachine.Spec.FailureDomain (This is to support deprecated AZ)
-//   3) No AZ
+//  1. Machine.Spec.FailureDomain
+//  2. AzureMachine.Spec.FailureDomain (This is to support deprecated AZ)
+//  3. No AZ
 func (m *MachineScope) AvailabilityZone() string {
 	if m.Machine.Spec.FailureDomain != nil {
 		return *m.Machine.Spec.FailureDomain
@@ -653,14 +653,21 @@ func (m *MachineScope) SetSubnetName() error {
 		subnetName := ""
 		subnets := m.Subnets()
 		var subnetCount int
+		subnetAllSpecified := false
 		for _, subnet := range subnets {
 			if string(subnet.Role) == m.Role() {
 				subnetCount++
 				subnetName = subnet.Name
 			}
+			if subnet.Role == infrav1.SubnetAll {
+				subnetAllSpecified = true
+				subnetName = subnet.Name
+			}
 		}
-		if subnetCount == 0 || subnetCount > 1 || subnetName == "" {
-			return errors.New("a subnet name must be specified when no subnets are specified or more than 1 subnet of the same role exist")
+		if !subnetAllSpecified {
+			if subnetCount == 0 || subnetCount > 1 || subnetName == "" {
+				return errors.New("a subnet name must be specified when no subnets are specified or more than 1 subnet of the same role exist")
+			}
 		}
 
 		m.AzureMachine.Spec.SubnetName = subnetName

@@ -58,7 +58,7 @@ func (c *AzureClusterTemplate) validateClusterTemplateSpec() field.ErrorList {
 	var oneSubnetWithoutNatGateway bool
 	networkSpec := c.Spec.Template.Spec.NetworkSpec
 	for _, subnet := range networkSpec.Subnets {
-		if subnet.Role == SubnetNode && !subnet.IsNatGatewayEnabled() {
+		if (subnet.Role == SubnetNode || subnet.Role == SubnetAll) && !subnet.IsNatGatewayEnabled() {
 			oneSubnetWithoutNatGateway = true
 			break
 		}
