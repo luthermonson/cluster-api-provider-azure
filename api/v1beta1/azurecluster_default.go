@@ -106,7 +106,7 @@ func (c *AzureCluster) setSubnetDefaults() {
 	var nodeSubnetFound bool
 	var nodeSubnetCounter int
 	for i, subnet := range c.Spec.NetworkSpec.Subnets {
-		if subnet.Role == SubnetNode {
+		if subnet.Role == SubnetNode || subnet.Role == SubnetAll {
 			nodeSubnetCounter++
 			nodeSubnetFound = true
 			if subnet.Name == "" {
@@ -202,7 +202,7 @@ func (c *AzureCluster) SetNodeOutboundLBDefaults() {
 
 		var needsOutboundLB bool
 		for _, subnet := range c.Spec.NetworkSpec.Subnets {
-			if subnet.Role == SubnetNode && !subnet.IsNatGatewayEnabled() {
+			if (subnet.Role == SubnetNode || subnet.Role == SubnetAll) && !subnet.IsNatGatewayEnabled() {
 				needsOutboundLB = true
 				break
 			}
