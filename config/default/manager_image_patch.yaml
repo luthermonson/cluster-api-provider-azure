@@ -8,5 +8,5 @@ spec:
     spec:
       containers:
       # Change the value of image field below to your controller image URL
-      - image: gcr.io/spectro-dev-public/snehal/cluster-api-azure/cluster-api-azure-controller:spectro-v1.3.2-20221102
+      - image: gcr.io/spectro-dev-public/snehal/cluster-api-azure/cluster-api-azure-controller:spectro-v1.3.2-20221124
         name: manager

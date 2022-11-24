@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"fmt"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
 
 	"k8s.io/utils/pointer"
 )
@@ -178,6 +179,12 @@ func (c *AzureCluster) setAPIServerLBDefaults() {
 			}
 		}
 	} else if lb.Type == Internal {
+		var privateIP string
+		if lb.PrivateIP == "" {
+			privateIP = DefaultInternalLBIPAddress
+		} else {
+			privateIP = lb.PrivateIP
+		}
 		if lb.Name == "" {
 			lb.Name = generateInternalLBName(c.ObjectMeta.Name)
 		}
@@ -186,7 +193,7 @@ func (c *AzureCluster) setAPIServerLBDefaults() {
 				{
 					Name: generateFrontendIPConfigName(lb.Name),
 					FrontendIPClass: FrontendIPClass{
-						PrivateIPAddress: DefaultInternalLBIPAddress,
+						PrivateIPAddress: privateIP,
 					},
 				},
 			}
@@ -303,6 +310,9 @@ func (lb *LoadBalancerClassSpec) setAPIServerLBDefaults() {
 	}
 	if lb.SKU == "" {
 		lb.SKU = SKUStandard
+	}
+	if lb.IPAllocationMethod == "" {
+		lb.IPAllocationMethod = string(network.IPAllocationMethodDynamic)
 	}
 	if lb.IdleTimeoutInMinutes == nil {
 		lb.IdleTimeoutInMinutes = pointer.Int32Ptr(DefaultOutboundRuleIdleTimeoutInMinutes)
