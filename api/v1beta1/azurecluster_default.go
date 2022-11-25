@@ -18,7 +18,7 @@ package v1beta1
 
 import (
 	"fmt"
-
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
 	"k8s.io/utils/pointer"
 )
 
@@ -303,6 +303,9 @@ func (lb *LoadBalancerClassSpec) setAPIServerLBDefaults() {
 	}
 	if lb.SKU == "" {
 		lb.SKU = SKUStandard
+	}
+	if lb.IPAllocationMethod == "" {
+		lb.IPAllocationMethod = string(network.IPAllocationMethodDynamic)
 	}
 	if lb.IdleTimeoutInMinutes == nil {
 		lb.IdleTimeoutInMinutes = pointer.Int32Ptr(DefaultOutboundRuleIdleTimeoutInMinutes)
