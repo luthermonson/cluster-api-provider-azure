@@ -89,8 +89,6 @@ type LoadBalancerClassSpec struct {
 	Type LBType `json:"type,omitempty"`
 	// +optional
 	IPAllocationMethod string `json:"ipAllocationMethod,omitempty"`
-	// +optional
-	PrivateIP string `json:"privateIP,omitempty"`
 	// IdleTimeoutInMinutes specifies the timeout for the TCP idle connection.
 	// +optional
 	IdleTimeoutInMinutes *int32 `json:"idleTimeoutInMinutes,omitempty"`
