@@ -128,8 +128,7 @@ IMAGE_NAME ?= cluster-api-azure-controller
 CONTROLLER_IMG ?= $(REGISTRY)/$(IMAGE_NAME)
 TAG ?= spectro-v1.3.2-$(shell date +%Y%m%d)
 ARCH ?= $(GOARCH)
-#ALL_ARCH = amd64 arm arm64 ppc64le s390x
-ALL_ARCH = amd64
+ALL_ARCH = amd64 arm arm64 ppc64le s390x
 
 # Allow overriding manifest generation destination directory
 MANIFEST_ROOT ?= config
