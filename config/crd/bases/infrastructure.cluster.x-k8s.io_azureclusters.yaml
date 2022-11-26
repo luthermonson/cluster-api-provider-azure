@@ -1680,6 +1680,8 @@ spec:
                           the TCP idle connection.
                         format: int32
                         type: integer
+                      ipAllocationMethod:
+                        type: string
                       name:
                         type: string
                       sku:
@@ -1734,6 +1736,8 @@ spec:
                           the TCP idle connection.
                         format: int32
                         type: integer
+                      ipAllocationMethod:
+                        type: string
                       name:
                         type: string
                       sku:
@@ -1786,6 +1790,8 @@ spec:
                           the TCP idle connection.
                         format: int32
                         type: integer
+                      ipAllocationMethod:
+                        type: string
                       name:
                         type: string
                       sku:
