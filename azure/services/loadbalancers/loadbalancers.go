@@ -91,7 +91,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 				break
 			}
 			if lbSpec.ResourceName() == s.Scope.APIServerLB().Name {
-				if len(*loadBalancer.FrontendIPConfigurations) > 0 && *(*loadBalancer.FrontendIPConfigurations)[0].PrivateIPAddress != "" {
+				if (loadBalancer.FrontendIPConfigurations != nil) && len(*loadBalancer.FrontendIPConfigurations) > 0 && *(*loadBalancer.FrontendIPConfigurations)[0].PrivateIPAddress != "" {
 					s.Scope.APIServerLB().FrontendIPs[0].PrivateIPAddress = *(*loadBalancer.FrontendIPConfigurations)[0].PrivateIPAddress
 				}
 			}
