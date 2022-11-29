@@ -164,8 +164,8 @@ func GeneratePrivateDNSZoneName(clusterName string) string {
 }
 
 // GeneratePrivateFQDN generates the FQDN for a private API Server based on the private DNS zone name.
-func GeneratePrivateFQDN(zoneName, clusterName string) string {
-	return fmt.Sprintf("%s.%s.%s", PrivateAPIServerHostname, clusterName, zoneName)
+func GeneratePrivateFQDN(zoneName string) string {
+	return fmt.Sprintf("%s.%s", PrivateAPIServerHostname, zoneName)
 }
 
 // GenerateVNetLinkName generates the name of a virtual network link name based on the vnet name.
