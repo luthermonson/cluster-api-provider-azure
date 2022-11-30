@@ -779,7 +779,11 @@ func (s *ClusterScope) APIServerPort() int32 {
 // APIServerHost returns the hostname used to reach the API server.
 func (s *ClusterScope) APIServerHost() string {
 	if s.IsAPIServerPrivate() {
-		return azure.GeneratePrivateFQDN(s.GetPrivateDNSZoneName(), s.AzureCluster.Name)
+		var isPrivateDNSZoneName bool
+		if len(s.AzureCluster.Spec.NetworkSpec.PrivateDNSZoneName) > 0 {
+			isPrivateDNSZoneName = true
+		}
+		return azure.GeneratePrivateFQDN(s.GetPrivateDNSZoneName(), s.AzureCluster.Name, isPrivateDNSZoneName)
 	}
 	return s.APIServerPublicIP().DNSName
 }
