@@ -164,7 +164,10 @@ func GeneratePrivateDNSZoneName(clusterName string) string {
 }
 
 // GeneratePrivateFQDN generates the FQDN for a private API Server based on the private DNS zone name.
-func GeneratePrivateFQDN(zoneName string) string {
+func GeneratePrivateFQDN(zoneName, clusterName string, isPrivateDNSZoneName bool) string {
+	if isPrivateDNSZoneName {
+		return fmt.Sprintf("%s.%s.%s", PrivateAPIServerHostname, clusterName, zoneName)
+	}
 	return fmt.Sprintf("%s.%s", PrivateAPIServerHostname, zoneName)
 }
 

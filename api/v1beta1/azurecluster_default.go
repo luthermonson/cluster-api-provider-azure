@@ -18,7 +18,7 @@ package v1beta1
 
 import (
 	"fmt"
-
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
 	"k8s.io/utils/pointer"
 )
 
@@ -106,7 +106,7 @@ func (c *AzureCluster) setSubnetDefaults() {
 	var nodeSubnetFound bool
 	var nodeSubnetCounter int
 	for i, subnet := range c.Spec.NetworkSpec.Subnets {
-		if subnet.Role == SubnetNode {
+		if subnet.Role == SubnetNode || subnet.Role == SubnetAll {
 			nodeSubnetCounter++
 			nodeSubnetFound = true
 			if subnet.Name == "" {
@@ -202,7 +202,7 @@ func (c *AzureCluster) SetNodeOutboundLBDefaults() {
 
 		var needsOutboundLB bool
 		for _, subnet := range c.Spec.NetworkSpec.Subnets {
-			if subnet.Role == SubnetNode && !subnet.IsNatGatewayEnabled() {
+			if (subnet.Role == SubnetNode || subnet.Role == SubnetAll) && !subnet.IsNatGatewayEnabled() {
 				needsOutboundLB = true
 				break
 			}
@@ -303,6 +303,9 @@ func (lb *LoadBalancerClassSpec) setAPIServerLBDefaults() {
 	}
 	if lb.SKU == "" {
 		lb.SKU = SKUStandard
+	}
+	if lb.IPAllocationMethod == "" {
+		lb.IPAllocationMethod = string(network.IPAllocationMethodDynamic)
 	}
 	if lb.IdleTimeoutInMinutes == nil {
 		lb.IdleTimeoutInMinutes = pointer.Int32Ptr(DefaultOutboundRuleIdleTimeoutInMinutes)

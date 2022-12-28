@@ -73,7 +73,7 @@ type VnetClassSpec struct {
 // SubnetClassSpec defines the SubnetSpec properties that may be shared across several Azure clusters.
 type SubnetClassSpec struct {
 	// Role defines the subnet role (eg. Node, ControlPlane)
-	// +kubebuilder:validation:Enum=node;control-plane;bastion
+	// +kubebuilder:validation:Enum=node;control-plane;bastion;all
 	Role SubnetRole `json:"role"`
 
 	// CIDRBlocks defines the subnet's address space, specified as one or more address prefixes in CIDR notation.
@@ -87,6 +87,8 @@ type LoadBalancerClassSpec struct {
 	SKU SKU `json:"sku,omitempty"`
 	// +optional
 	Type LBType `json:"type,omitempty"`
+	// +optional
+	IPAllocationMethod string `json:"ipAllocationMethod,omitempty"`
 	// IdleTimeoutInMinutes specifies the timeout for the TCP idle connection.
 	// +optional
 	IdleTimeoutInMinutes *int32 `json:"idleTimeoutInMinutes,omitempty"`

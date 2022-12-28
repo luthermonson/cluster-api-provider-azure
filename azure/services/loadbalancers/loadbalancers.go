@@ -18,7 +18,8 @@ package loadbalancers
 
 import (
 	"context"
-
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
+	"github.com/pkg/errors"
 	infrav1 "sigs.k8s.io/cluster-api-provider-azure/api/v1beta1"
 	"sigs.k8s.io/cluster-api-provider-azure/azure"
 	"sigs.k8s.io/cluster-api-provider-azure/azure/services/async"
@@ -78,10 +79,26 @@ func (s *Service) Reconcile(ctx context.Context) error {
 	//  Order of precedence (highest -> lowest) is: error that is not an operationNotDoneError (i.e. error creating) -> operationNotDoneError (i.e. creating in progress) -> no error (i.e. created)
 	var result error
 	for _, lbSpec := range specs {
-		if _, err := s.CreateResource(ctx, lbSpec, serviceName); err != nil {
+		if lb, err := s.CreateResource(ctx, lbSpec, serviceName); err != nil {
 			if !azure.IsOperationNotDoneError(err) || result == nil {
 				result = err
 			}
+		} else {
+			loadBalancer, ok := lb.(network.LoadBalancer)
+			if !ok {
+				// Return out of loop since this would be an unexepcted fatal error
+				result = errors.Errorf("created resource %T is not a network.LoadBalancer", lb)
+				break
+			}
+			if lbSpec.ResourceName() == s.Scope.APIServerLB().Name {
+				lbIPConfig := loadBalancer.FrontendIPConfigurations
+				if (lbIPConfig != nil) && len(*lbIPConfig) > 0 &&
+					(*lbIPConfig)[0].PrivateIPAddress != nil &&
+					*(*lbIPConfig)[0].PrivateIPAddress != "" {
+					s.Scope.APIServerLB().FrontendIPs[0].PrivateIPAddress = *(*lbIPConfig)[0].PrivateIPAddress
+				}
+			}
+
 		}
 	}
 

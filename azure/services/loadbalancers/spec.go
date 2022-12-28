@@ -35,6 +35,7 @@ type LBSpec struct {
 	Role                 string
 	Type                 infrav1.LBType
 	SKU                  infrav1.SKU
+	IPAllocationMethod   string
 	VNetName             string
 	VNetResourceGroup    string
 	SubnetName           string
@@ -163,13 +164,17 @@ func getFrontendIPConfigs(lbSpec LBSpec) ([]network.FrontendIPConfiguration, []n
 	frontendIDs := make([]network.SubResource, 0)
 	for _, ipConfig := range lbSpec.FrontendIPConfigs {
 		var properties network.FrontendIPConfigurationPropertiesFormat
+		var privateIPAddress string
+		if lbSpec.IPAllocationMethod == "Static" {
+			privateIPAddress = ipConfig.PrivateIPAddress
+		}
 		if lbSpec.Type == infrav1.Internal {
 			properties = network.FrontendIPConfigurationPropertiesFormat{
-				PrivateIPAllocationMethod: network.IPAllocationMethodStatic,
+				PrivateIPAllocationMethod: network.IPAllocationMethod(lbSpec.IPAllocationMethod),
 				Subnet: &network.Subnet{
 					ID: to.StringPtr(azure.SubnetID(lbSpec.SubscriptionID, lbSpec.VNetResourceGroup, lbSpec.VNetName, lbSpec.SubnetName)),
 				},
-				PrivateIPAddress: to.StringPtr(ipConfig.PrivateIPAddress),
+				PrivateIPAddress: to.StringPtr(privateIPAddress),
 			}
 		} else {
 			properties = network.FrontendIPConfigurationPropertiesFormat{

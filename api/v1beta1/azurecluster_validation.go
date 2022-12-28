@@ -135,7 +135,7 @@ func validateNetworkSpec(networkSpec NetworkSpec, old NetworkSpec, fldPath *fiel
 
 	var oneSubnetWithoutNatGateway bool
 	for _, subnet := range networkSpec.Subnets {
-		if subnet.Role == SubnetNode && !subnet.IsNatGatewayEnabled() {
+		if (subnet.Role == SubnetNode || subnet.Role == SubnetAll) && !subnet.IsNatGatewayEnabled() {
 			oneSubnetWithoutNatGateway = true
 			break
 		}
@@ -171,20 +171,26 @@ func validateSubnets(subnets Subnets, vnet VnetSpec, fldPath *field.Path) field.
 		"control-plane": false,
 		"node":          false,
 	}
+	subnetAllRoleSpecified := false
 
 	for i, subnet := range subnets {
 		if err := validateSubnetName(subnet.Name, fldPath.Index(i).Child("name")); err != nil {
 			allErrs = append(allErrs, err)
 		}
-		if _, ok := subnetNames[subnet.Name]; ok {
-			allErrs = append(allErrs, field.Duplicate(fldPath, subnet.Name))
-		}
-		subnetNames[subnet.Name] = true
-		for role := range requiredSubnetRoles {
-			if role == string(subnet.Role) {
-				requiredSubnetRoles[role] = true
+		if subnet.Role == SubnetAll {
+			subnetAllRoleSpecified = true
+		} else {
+			if _, ok := subnetNames[subnet.Name]; ok {
+				allErrs = append(allErrs, field.Duplicate(fldPath, subnet.Name))
+			}
+			subnetNames[subnet.Name] = true
+			for role := range requiredSubnetRoles {
+				if role == string(subnet.Role) {
+					requiredSubnetRoles[role] = true
+				}
 			}
 		}
+
 		for _, rule := range subnet.SecurityGroup.SecurityRules {
 			if err := validateSecurityRule(
 				rule,
@@ -195,10 +201,12 @@ func validateSubnets(subnets Subnets, vnet VnetSpec, fldPath *field.Path) field.
 		}
 		allErrs = append(allErrs, validateSubnetCIDR(subnet.CIDRBlocks, vnet.CIDRBlocks, fldPath.Index(i).Child("cidrBlocks"))...)
 	}
-	for k, v := range requiredSubnetRoles {
-		if !v {
-			allErrs = append(allErrs, field.Required(fldPath,
-				fmt.Sprintf("required role %s not included in provided subnets", k)))
+	if !subnetAllRoleSpecified {
+		for k, v := range requiredSubnetRoles {
+			if !v {
+				allErrs = append(allErrs, field.Required(fldPath,
+					fmt.Sprintf("required role %s not included in provided subnets", k)))
+			}
 		}
 	}
 	return allErrs
@@ -339,7 +347,7 @@ func validateAPIServerLB(lb LoadBalancerSpec, old LoadBalancerSpec, cidrs []stri
 					fldPath.Child("frontendIPConfigs").Index(0).Child("privateIP")); err != nil {
 					allErrs = append(allErrs, err)
 				}
-				if len(old.FrontendIPs) != 0 && old.FrontendIPs[0].PrivateIPAddress != lb.FrontendIPs[0].PrivateIPAddress {
+				if lb.IPAllocationMethod == "Static" && len(old.FrontendIPs) != 0 && old.FrontendIPs[0].PrivateIPAddress == "" && old.FrontendIPs[0].PrivateIPAddress != lb.FrontendIPs[0].PrivateIPAddress {
 					allErrs = append(allErrs, field.Forbidden(fldPath.Child("name"), "API Server load balancer private IP should not be modified after AzureCluster creation."))
 				}
 			}

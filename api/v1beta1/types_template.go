@@ -58,17 +58,17 @@ type NetworkTemplateSpec struct {
 // GetControlPlaneSubnetTemplate returns the cluster control plane subnet template.
 func (n *NetworkTemplateSpec) GetControlPlaneSubnetTemplate() (SubnetTemplateSpec, error) {
 	for _, sn := range n.Subnets {
-		if sn.Role == SubnetControlPlane {
+		if sn.Role == SubnetControlPlane || sn.Role == SubnetAll {
 			return sn, nil
 		}
 	}
-	return SubnetTemplateSpec{}, errors.Errorf("no subnet template found with role %s", SubnetControlPlane)
+	return SubnetTemplateSpec{}, errors.Errorf("no subnet template found with role %s or %s", SubnetControlPlane, SubnetAll)
 }
 
 // UpdateControlPlaneSubnet updates the cluster control plane subnet.
 func (n *NetworkTemplateSpec) UpdateControlPlaneSubnetTemplate(subnet SubnetTemplateSpec) {
 	for i, sn := range n.Subnets {
-		if sn.Role == SubnetControlPlane {
+		if sn.Role == SubnetControlPlane || sn.Role == SubnetAll {
 			n.Subnets[i] = subnet
 		}
 	}
