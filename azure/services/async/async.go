@@ -151,7 +151,9 @@ func (s *Service) DeleteResource(ctx context.Context, spec azure.ResourceSpecGet
 	future := s.Scope.GetLongRunningOperationState(resourceName, serviceName)
 	if future != nil {
 		_, err := processOngoingOperation(ctx, s.Scope, s.Deleter, resourceName, serviceName)
-		return err
+		if err != nil || future.Type == infrav1.DeleteFuture {
+			return err
+		}
 	}
 
 	// No long running operation is active, so delete the resource.
