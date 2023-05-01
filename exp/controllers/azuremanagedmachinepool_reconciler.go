@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-11-01/compute"
+	autorest "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/cluster-api-provider-azure/azure"
 	"sigs.k8s.io/cluster-api-provider-azure/azure/scope"
@@ -74,20 +75,30 @@ func (a *AgentPoolVMSSNotFoundError) Is(target error) bool {
 
 // newAzureManagedMachinePoolService populates all the services based on input scope.
 func newAzureManagedMachinePoolService(scope *scope.ManagedMachinePoolScope) (*azureManagedMachinePoolService, error) {
-	var authorizer azure.Authorizer = scope
-	if scope.Location() != "" {
-		regionalAuthorizer, err := azure.WithRegionalBaseURI(scope, scope.Location())
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to create a regional authorizer")
-		}
-		authorizer = regionalAuthorizer
+	scaleSetAuthorizer, err := scaleSetAuthorizer(scope)
+	if err != nil {
+		return nil, err
 	}
 
 	return &azureManagedMachinePoolService{
 		scope:         scope,
 		agentPoolsSvc: agentpools.New(scope),
-		scaleSetsSvc:  scalesets.NewClient(authorizer),
+		scaleSetsSvc:  scalesets.NewClient(scaleSetAuthorizer),
 	}, nil
+}
+
+// scaleSetAuthorizer takes a scope and determines if a regional authorizer is needed for scale sets
+// see https://github.com/kubernetes-sigs/cluster-api-provider-azure/pull/1850 for context on region based authorizer
+func scaleSetAuthorizer(scope *scope.ManagedMachinePoolScope) (azure.Authorizer, error) {
+	if scope.Location() == "" {
+		return scope, nil // no location so use default
+	}
+
+	if scope.ControlPlane.Spec.AzureEnvironment == autorest.USGovernmentCloud.Name {
+		return scope, nil // no region support in usgovcloud
+	}
+
+	return azure.WithRegionalBaseURI(scope, scope.Location())
 }
 
 // Reconcile reconciles all the services in a predetermined order.
