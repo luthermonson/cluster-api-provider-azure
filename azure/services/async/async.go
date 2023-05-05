@@ -66,26 +66,31 @@ func processOngoingOperation(ctx context.Context, scope FutureScope, client Futu
 	}
 
 	isDone, err := client.IsDone(ctx, sdkFuture)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed checking if the operation was complete")
-	}
-
+	// Assume that if isDone is true, then we successfully checked that the
+	// operation was complete even if err is non-nil. Assume the error in that
+	// case is unrelated and will be captured in Result below.
 	if !isDone {
+		if err != nil {
+			return nil, errors.Wrap(err, "failed checking if the operation was complete")
+		}
 		// Operation is still in progress, update conditions and requeue.
 		log.V(2).Info("long running operation is still ongoing", "service", serviceName, "resource", resourceName)
 		return nil, azure.WithTransientError(azure.NewOperationNotDoneError(future), retryAfter(sdkFuture))
 	}
+	if err != nil {
+		log.V(2).Error(err, "error checking long running operation status after it finished")
+	}
+
+	// Once the operation is done, we can delete the long running operation state.
+	// If the operation failed, this will allow it to be retried during the next reconciliation.
+	// If the resource is not found, we also reset the long-running operation state so we can attempt to create it again.
+	// This can happen if the resource was deleted by another process before we could get the result.
+	scope.DeleteLongRunningOperationState(resourceName, serviceName)
 
 	// Resource has been created/deleted/updated.
 	log.V(2).Info("long running operation has completed", "service", serviceName, "resource", resourceName)
 	result, err = client.Result(ctx, sdkFuture, future.Type)
-	if err == nil || azure.ResourceNotFound(err) {
-		// Once we have the result, we can delete the long running operation state.
-		// If the resource is not found, we also reset the long-running operation state so we can attempt to create it again.
-		// This can happen if the resource was deleted by another process before we could get the result.
-		scope.DeleteLongRunningOperationState(resourceName, serviceName)
-	}
-	return result, err
+	return client.Result(ctx, sdkFuture, future.Type)
 }
 
 // CreateResource implements the logic for creating a resource Asynchronously.
@@ -151,7 +156,7 @@ func (s *Service) DeleteResource(ctx context.Context, spec azure.ResourceSpecGet
 	future := s.Scope.GetLongRunningOperationState(resourceName, serviceName)
 	if future != nil {
 		_, err := processOngoingOperation(ctx, s.Scope, s.Deleter, resourceName, serviceName)
-		if err != nil || future.Type == infrav1.DeleteFuture {
+		if err != nil && future.Type == infrav1.DeleteFuture {
 			return err
 		}
 	}
