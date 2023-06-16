@@ -724,6 +724,21 @@ spec:
                 description: SubscriptionID is the GUID of the Azure subscription
                   to hold this cluster.
                 type: string
+              userAssignedIdentities:
+                description: UserAssignedIdentities is a list of standalone Azure
+                  identities provided by the user to assign the cluster
+                items:
+                  description: UserAssignedIdentity defines the user-assigned identities
+                    provided by the user to be assigned to Azure resources.
+                  properties:
+                    providerID:
+                      description: 'ProviderID is the identification ID of the user-assigned
+                        Identity, the format of an identity is: ''azure:///subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}'''
+                      type: string
+                  required:
+                  - providerID
+                  type: object
+                type: array
               version:
                 description: Version defines the desired Kubernetes version.
                 minLength: 2

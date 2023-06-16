@@ -95,6 +95,17 @@ type ManagedClusterSpec struct {
 
 	// Headers is the list of headers to add to the HTTP requests to update this resource.
 	Headers map[string]string
+
+	// UserAssignedIdentities is a list of standalone Azure identities provided by the user to assign the cluster
+	UserAssignedIdentities []UserAssignedIdentity
+}
+
+// UserAssignedIdentity defines the user-assigned identities provided
+// by the user to be assigned to Azure resources.
+type UserAssignedIdentity struct {
+	// ProviderID is the identification ID of the user-assigned Identity, the format of an identity is:
+	// 'azure:///subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}'
+	ProviderID string `json:"providerID"`
 }
 
 // AADProfile is Azure Active Directory configuration to integrate with AKS, for aad authentication.
@@ -300,6 +311,24 @@ func (s *ManagedClusterSpec) Parameters(existing interface{}) (params interface{
 			EnablePrivateCluster:           s.APIServerAccessProfile.EnablePrivateCluster,
 			PrivateDNSZone:                 s.APIServerAccessProfile.PrivateDNSZone,
 			EnablePrivateClusterPublicFQDN: s.APIServerAccessProfile.EnablePrivateClusterPublicFQDN,
+		}
+	}
+
+	if len(s.UserAssignedIdentities) == 0 {
+		// system assigned assumed if no user assigned input
+		managedCluster.Identity = &containerservice.ManagedClusterIdentity{
+			Type: containerservice.ResourceIdentityType(infrav1.VMIdentitySystemAssigned),
+		}
+	} else {
+		uaIDs := make(map[string]*containerservice.ManagedClusterIdentityUserAssignedIdentitiesValue, len(s.UserAssignedIdentities))
+		for _, id := range s.UserAssignedIdentities {
+			uaIDs[id.ProviderID] = &containerservice.ManagedClusterIdentityUserAssignedIdentitiesValue{
+				// intentionally empty
+			}
+		}
+		managedCluster.Identity = &containerservice.ManagedClusterIdentity{
+			Type:                   containerservice.ResourceIdentityType(infrav1.VMIdentityUserAssigned),
+			UserAssignedIdentities: uaIDs,
 		}
 	}
 

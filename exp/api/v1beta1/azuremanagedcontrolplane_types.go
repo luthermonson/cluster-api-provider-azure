@@ -112,6 +112,10 @@ type AzureManagedControlPlaneSpec struct {
 	// APIServerAccessProfile is the access profile for AKS API server.
 	// +optional
 	APIServerAccessProfile *APIServerAccessProfile `json:"apiServerAccessProfile,omitempty"`
+
+	// UserAssignedIdentities is a list of standalone Azure identities provided by the user to assign the cluster
+	// +optional
+	UserAssignedIdentities []infrav1.UserAssignedIdentity `json:"userAssignedIdentities,omitempty"`
 }
 
 // AADProfile - AAD integration managed by AKS.
